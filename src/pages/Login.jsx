@@ -29,11 +29,16 @@ const Login = ({ onLogin }) => {
         alignItems: "center",
         minHeight: "100vh",
         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        padding: "16px",
       }}
     >
       <Card
         title="Sistema de Reservas - Festa"
-        style={{ width: 400, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+        style={{
+          width: "100%",
+          maxWidth: 400,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        }}
       >
         <Form name="login" onFinish={onFinish} autoComplete="off" size="large">
           <Form.Item

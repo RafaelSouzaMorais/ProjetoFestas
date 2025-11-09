@@ -11,6 +11,7 @@ const db = new Database(path.join(__dirname, "festa.db"));
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     is_admin INTEGER DEFAULT 0,

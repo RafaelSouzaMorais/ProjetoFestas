@@ -45,25 +45,55 @@ const AdminDashboard = ({ user, onLogout }) => {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          flexWrap: "wrap",
+          padding: "0 16px",
         }}
       >
-        <div style={{ color: "white", fontSize: "20px", fontWeight: "bold" }}>
-          Painel do Administrador
+        <div style={{ color: "white", fontSize: "18px", fontWeight: "bold" }}>
+          Painel Admin
         </div>
-        <div style={{ color: "white" }}>
-          Olá, {user.username}
+        <div
+          style={{
+            color: "white",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <span
+            style={{
+              display: "inline-block",
+              maxWidth: "150px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {user.username}
+          </span>
           <Button
             type="link"
             icon={<LogoutOutlined />}
             onClick={handleLogout}
-            style={{ color: "white", marginLeft: 16 }}
+            style={{ color: "white", padding: "4px 8px" }}
           >
-            Sair
+            <span style={{ display: "none" }}>Sair</span>
           </Button>
         </div>
       </Header>
       <Layout>
-        <Sider width={200} theme="light">
+        <Sider
+          width={200}
+          theme="light"
+          breakpoint="lg"
+          collapsedWidth="0"
+          style={{
+            overflow: "auto",
+            height: "calc(100vh - 64px)",
+            position: "sticky",
+            top: 64,
+            left: 0,
+          }}
+        >
           <Menu
             mode="inline"
             selectedKeys={[selectedMenu]}
@@ -93,10 +123,10 @@ const AdminDashboard = ({ user, onLogout }) => {
             ]}
           />
         </Sider>
-        <Layout style={{ padding: "24px" }}>
+        <Layout style={{ padding: "16px" }}>
           <Content
             style={{
-              padding: 24,
+              padding: 16,
               margin: 0,
               minHeight: 280,
               background: "white",

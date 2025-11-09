@@ -16,3 +16,106 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Responsividade para tabelas do Ant Design */
+@media screen and (max-width: 768px) {
+  .ant-table {
+    font-size: 12px;
+  }
+
+  .ant-table-thead > tr > th {
+    padding: 8px 4px;
+    font-size: 12px;
+  }
+
+  .ant-table-tbody > tr > td {
+    padding: 8px 4px;
+    font-size: 12px;
+  }
+
+  .ant-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    height: auto;
+  }
+
+  .ant-btn-sm {
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+
+  .ant-space {
+    gap: 4px !important;
+  }
+
+  .ant-modal {
+    max-width: calc(100vw - 32px);
+    margin: 16px auto;
+  }
+
+  .ant-modal-body {
+    padding: 16px;
+  }
+
+  .ant-card {
+    margin: 8px;
+  }
+
+  .ant-card-body {
+    padding: 12px;
+  }
+
+  .ant-form-item {
+    margin-bottom: 12px;
+  }
+
+  .ant-input,
+  .ant-input-number,
+  .ant-input-password {
+    font-size: 14px;
+  }
+
+  .ant-layout-header {
+    padding: 0 16px;
+  }
+
+  .ant-layout-content {
+    padding: 16px !important;
+  }
+
+  .ant-layout-sider {
+    flex: 0 0 200px !important;
+    max-width: 200px !important;
+    min-width: 200px !important;
+  }
+}
+
+/* Ajustes para telas muito pequenas */
+@media screen and (max-width: 480px) {
+  .ant-table {
+    font-size: 11px;
+  }
+
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    padding: 6px 2px;
+    font-size: 11px;
+  }
+
+  .ant-btn-icon-only {
+    padding: 4px;
+  }
+
+  .ant-tag {
+    font-size: 11px;
+    padding: 0 4px;
+  }
+
+  .ant-layout-header {
+    padding: 0 12px;
+  }
+
+  .ant-layout-content {
+    padding: 12px !important;
+  }
+}

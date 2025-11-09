@@ -10,8 +10,17 @@ import {
   Popconfirm,
   message,
 } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  ReloadOutlined,
+} from "@ant-design/icons";
 import { getUsers, createUser, updateUser, deleteUser } from "../services/api";
+
+const generateRandomCode = () => {
+  return Math.random().toString(36).substring(2, 10).toUpperCase();
+};
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -39,7 +48,21 @@ const UserManagement = () => {
   const handleCreate = () => {
     setEditingUser(null);
     form.resetFields();
+    const randomCode = generateRandomCode();
+    form.setFieldsValue({
+      username: randomCode,
+      password: randomCode,
+    });
     setModalVisible(true);
+  };
+
+  const handleGenerateCode = () => {
+    const randomCode = generateRandomCode();
+    form.setFieldsValue({
+      username: randomCode,
+      password: randomCode,
+    });
+    message.success("Código gerado!");
   };
 
   const handleEdit = (user) => {
@@ -76,7 +99,12 @@ const UserManagement = () => {
 
   const columns = [
     {
-      title: "Usuário",
+      title: "Nome",
+      dataIndex: "name",
+      key: "name",
+    },
+    {
+      title: "Usuário/Senha",
       dataIndex: "username",
       key: "username",
     },
@@ -136,6 +164,7 @@ const UserManagement = () => {
         columns={columns}
         rowKey="id"
         loading={loading}
+        scroll={{ x: true }}
       />
 
       <Modal
@@ -148,11 +177,31 @@ const UserManagement = () => {
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item
+            name="name"
+            label="Nome Completo"
+            rules={[{ required: true, message: "Digite o nome completo" }]}
+          >
+            <Input placeholder="Nome da pessoa" />
+          </Form.Item>
+
+          <Form.Item
             name="username"
             label="Usuário"
             rules={[{ required: true, message: "Digite o nome de usuário" }]}
           >
-            <Input disabled={!!editingUser} />
+            <Input
+              disabled={!!editingUser}
+              suffix={
+                !editingUser && (
+                  <Button
+                    type="text"
+                    icon={<ReloadOutlined />}
+                    onClick={handleGenerateCode}
+                    size="small"
+                  />
+                )
+              }
+            />
           </Form.Item>
 
           <Form.Item

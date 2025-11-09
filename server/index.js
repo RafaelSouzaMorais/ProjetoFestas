@@ -65,25 +65,33 @@ app.post("/api/login", (req, res) => {
 app.get("/api/users", authMiddleware, adminMiddleware, (req, res) => {
   const users = db
     .prepare(
-      "SELECT id, username, is_admin, mesa_quota, cadeira_extra_quota FROM users"
+      "SELECT id, name, username, is_admin, mesa_quota, cadeira_extra_quota FROM users"
     )
     .all();
   res.json(users);
 });
 
 app.post("/api/users", authMiddleware, adminMiddleware, (req, res) => {
-  const { username, password, mesa_quota, cadeira_extra_quota } = req.body;
+  const { name, username, password, mesa_quota, cadeira_extra_quota } =
+    req.body;
 
   try {
     const hashedPassword = bcrypt.hashSync(password, 10);
     const result = db
       .prepare(
-        "INSERT INTO users (username, password, mesa_quota, cadeira_extra_quota) VALUES (?, ?, ?, ?)"
+        "INSERT INTO users (name, username, password, mesa_quota, cadeira_extra_quota) VALUES (?, ?, ?, ?, ?)"
       )
-      .run(username, hashedPassword, mesa_quota || 0, cadeira_extra_quota || 0);
+      .run(
+        name,
+        username,
+        hashedPassword,
+        mesa_quota || 0,
+        cadeira_extra_quota || 0
+      );
 
     res.json({
       id: result.lastInsertRowid,
+      name,
       username,
       mesa_quota,
       cadeira_extra_quota,
@@ -95,18 +103,18 @@ app.post("/api/users", authMiddleware, adminMiddleware, (req, res) => {
 
 app.put("/api/users/:id", authMiddleware, adminMiddleware, (req, res) => {
   const { id } = req.params;
-  const { mesa_quota, cadeira_extra_quota, password } = req.body;
+  const { mesa_quota, cadeira_extra_quota, password, name } = req.body;
 
   try {
     if (password) {
       const hashedPassword = bcrypt.hashSync(password, 10);
       db.prepare(
-        "UPDATE users SET mesa_quota = ?, cadeira_extra_quota = ?, password = ? WHERE id = ?"
-      ).run(mesa_quota, cadeira_extra_quota, hashedPassword, id);
+        "UPDATE users SET mesa_quota = ?, cadeira_extra_quota = ?, password = ?, name = ? WHERE id = ?"
+      ).run(mesa_quota, cadeira_extra_quota, hashedPassword, name, id);
     } else {
       db.prepare(
-        "UPDATE users SET mesa_quota = ?, cadeira_extra_quota = ? WHERE id = ?"
-      ).run(mesa_quota, cadeira_extra_quota, id);
+        "UPDATE users SET mesa_quota = ?, cadeira_extra_quota = ?, name = ? WHERE id = ?"
+      ).run(mesa_quota, cadeira_extra_quota, name, id);
     }
 
     res.json({ success: true });

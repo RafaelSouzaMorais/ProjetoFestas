@@ -110,6 +110,7 @@ const TableManagement = () => {
         columns={columns}
         rowKey="id"
         loading={loading}
+        scroll={{ x: true }}
       />
 
       <Modal

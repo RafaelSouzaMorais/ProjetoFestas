@@ -156,16 +156,15 @@ const ReservationModal = ({ visible, onClose, user }) => {
       open={visible}
       onCancel={onClose}
       footer={null}
-      width={800}
+      width="100%"
+      style={{ maxWidth: 800, top: 20 }}
     >
       <div style={{ marginBottom: 16 }}>
-        <Space>
+        <Space direction="vertical" style={{ width: "100%" }}>
           <Tag color="blue">
-            Mesas reservadas: {myReservations.length}/{user.mesa_quota}
+            Mesas: {myReservations.length}/{user.mesa_quota}
           </Tag>
-          <Tag color="orange">
-            Cadeiras extra disponíveis: {user.cadeira_extra_quota}
-          </Tag>
+          <Tag color="orange">Cadeiras extra: {user.cadeira_extra_quota}</Tag>
         </Space>
       </div>
 
@@ -175,6 +174,7 @@ const ReservationModal = ({ visible, onClose, user }) => {
         rowKey="id"
         loading={loading}
         pagination={{ pageSize: 10 }}
+        scroll={{ x: true }}
       />
     </Modal>
   );
