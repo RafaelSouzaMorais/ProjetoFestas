@@ -6,6 +6,7 @@ COPY package*.json ./
 COPY vite.config.* ./
 COPY src ./src
 COPY public ./public
+
 RUN npm install
 RUN npm run build
 
@@ -18,15 +19,10 @@ COPY server ./server
 COPY package*.json ./
 RUN npm install --production
 
-# Criar diretório para o banco de dados
 RUN mkdir -p /app/server/data
 
-# Expor portas
 EXPOSE 3001
-
-# Variáveis de ambiente
 ENV NODE_ENV=production
 ENV PORT=3001
 
-# Comando para iniciar o servidor
 CMD ["node", "server/index.js"]
