@@ -1,0 +1,52 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: projetofestas-app
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./server/data:/app/server/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - JWT_SECRET=festa-secret-key-2025-production
+    networks:
+      - festa-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3001/api/event-config', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    container_name: projetofestas-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./dist:/usr/share/nginx/html:ro
+    depends_on:
+      - app
+    networks:
+      - festa-network
+
+networks:
+  festa-network:
+    driver: bridge
+
+volumes:
+  db-data:
