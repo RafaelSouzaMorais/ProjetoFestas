@@ -1,26 +1,22 @@
 # Stage 1: Build frontend
-FROM node:20-alpine AS frontend-builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
-
-COPY . .
+COPY vite.config.* ./
+COPY src ./src
+COPY public ./public
+RUN npm install
 RUN npm run build
 
-# Stage 2: Production
-FROM node:20-alpine
+# Stage 2: Backend
+FROM node:20-alpine AS backend
 WORKDIR /app
 
-# Instalar apenas dependências de produção
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copiar código do servidor
+COPY --from=builder /app/dist ./dist
 COPY server ./server
-
-# Copiar build do frontend
-COPY --from=frontend-builder /app/dist ./dist
+COPY package*.json ./
+RUN npm install --production
 
 # Criar diretório para o banco de dados
 RUN mkdir -p /app/server/data
