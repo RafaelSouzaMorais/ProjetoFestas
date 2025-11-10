@@ -26,7 +26,7 @@ services:
       - PORT=3100
       - JWT_SECRET=festa-secret-key-2025
       - DB_HOST=postgres
-      - DB_PORT=5432
+      - DB_PORT=5435
       - DB_NAME=projeto_festas
       - DB_USER=postgres
       - DB_PASSWORD=postgres
@@ -41,7 +41,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
