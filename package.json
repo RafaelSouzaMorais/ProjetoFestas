@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "start": "concurrently \"npm run start:server\" \"npm run start:client\"",
     "start:server": "node server/index.js",
-    "start:client": "vite preview --host 0.0.0.0 --port 5173"
+    "start:client": "vite preview --host 0.0.0.0 --port 5173 --open false"
   },
   "dependencies": {
     "antd": "^5.28.0",
