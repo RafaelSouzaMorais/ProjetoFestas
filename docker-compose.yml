@@ -1,45 +1,62 @@
-version: "3.8"
-
 services:
-  app:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: projetofestas-app
+    container_name: projetofestas-backend
     restart: unless-stopped
-    ports:
-      - "3001:3001"
-    volumes:
-      - db-data:/app/server/data
-    environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - JWT_SECRET=festa-secret-key-2025-production
     networks:
       - festa-network
+    ports:
+      - "3100:3100"
     healthcheck:
       test:
         [
           "CMD",
           "node",
           "-e",
-          "require('http').get('http://localhost:3001/api/event-config', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
+          "require('http').get('http://localhost:3100/api/event-config', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
         ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    environment:
+      - NODE_ENV=production
+      - PORT=3100
+      - JWT_SECRET=festa-secret-key-2025
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=projeto_festas
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+    depends_on:
+      - postgres
+  postgres:
+    image: postgres:16
+    container_name: projetofestas-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=projeto_festas
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - festa-network
 
-  nginx:
+  frontend:
     build:
       context: .
       dockerfile: Dockerfile.nginx
-    container_name: projetofestas-nginx
+    container_name: projetofestas-frontend
     restart: unless-stopped
     ports:
       - "7778:80"
     depends_on:
-      - app
+      - backend
     networks:
       - festa-network
 
@@ -48,4 +65,4 @@ networks:
     driver: bridge
 
 volumes:
-  db-data:
+  pgdata:

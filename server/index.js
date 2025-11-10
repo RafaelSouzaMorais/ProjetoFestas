@@ -1,20 +1,22 @@
-import express from "express";
-import cors from "cors";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import db from "./database.js";
+const express = require("express");
+const cors = require("cors");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const multer = require("multer");
+const { pool, initializeDatabase } = require("./database.js");
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3100;
-const JWT_SECRET = "festa-secret-key-2025";
+const JWT_SECRET = process.env.JWT_SECRET || "festa-secret-key-2025";
 
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-import multer from "multer";
 const upload = multer({ limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
 
+// Middlewares
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) {
@@ -37,314 +39,307 @@ const adminMiddleware = (req, res, next) => {
   next();
 };
 
-app.post("/api/login", (req, res) => {
+// Login
+app.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
-  const user = db
-    .prepare("SELECT * FROM users WHERE username = ?")
-    .get(username);
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE username = $1", [
+      username,
+    ]);
+    const user = result.rows[0];
 
-  if (!user || !bcrypt.compareSync(password, user.password)) {
-    return res.status(401).json({ error: "Credenciais inválidas" });
+    if (!user || !bcrypt.compareSync(password, user.password)) {
+      return res.status(401).json({ error: "Credenciais inválidas" });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, is_admin: user.is_admin },
+      JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        is_admin: user.is_admin,
+        mesa_quota: user.mesa_quota,
+        cadeira_extra_quota: user.cadeira_extra_quota,
+      },
+    });
+  } catch (error) {
+    console.error("Error in login:", error);
+    res.status(500).json({ error: error.message });
   }
-
-  const token = jwt.sign(
-    { id: user.id, username: user.username, is_admin: user.is_admin },
-    JWT_SECRET,
-    { expiresIn: "24h" }
-  );
-
-  res.json({
-    token,
-    user: {
-      id: user.id,
-      username: user.username,
-      is_admin: user.is_admin,
-      mesa_quota: user.mesa_quota,
-      cadeira_extra_quota: user.cadeira_extra_quota,
-    },
-  });
 });
 
-app.get("/api/users", authMiddleware, adminMiddleware, (req, res) => {
-  const users = db
-    .prepare(
-      "SELECT id, name, username, is_admin, mesa_quota, cadeira_extra_quota FROM users"
-    )
-    .all();
-  res.json(users);
+// Usuários
+app.get("/api/users", authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, username, is_admin, mesa_quota, cadeira_extra_quota FROM users ORDER BY id"
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error getting users:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-app.post("/api/users", authMiddleware, adminMiddleware, (req, res) => {
-  const { name, username, password, mesa_quota, cadeira_extra_quota } =
-    req.body;
+app.post("/api/users", authMiddleware, adminMiddleware, async (req, res) => {
+  const { username, password, mesa_quota, cadeira_extra_quota } = req.body;
 
   try {
     const hashedPassword = bcrypt.hashSync(password, 10);
-    const result = db
-      .prepare(
-        "INSERT INTO users (name, username, password, mesa_quota, cadeira_extra_quota) VALUES (?, ?, ?, ?, ?)"
-      )
-      .run(
-        name,
-        username,
-        hashedPassword,
-        mesa_quota || 0,
-        cadeira_extra_quota || 0
-      );
+    const result = await pool.query(
+      "INSERT INTO users (username, password, mesa_quota, cadeira_extra_quota) VALUES ($1, $2, $3, $4) RETURNING id",
+      [username, hashedPassword, mesa_quota || 0, cadeira_extra_quota || 0]
+    );
 
     res.json({
-      id: result.lastInsertRowid,
-      name,
+      id: result.rows[0].id,
       username,
       mesa_quota,
       cadeira_extra_quota,
     });
   } catch (error) {
+    console.error("Error creating user:", error);
     res.status(400).json({ error: "Usuário já existe" });
   }
 });
 
-app.put("/api/users/:id", authMiddleware, adminMiddleware, (req, res) => {
+app.put("/api/users/:id", authMiddleware, adminMiddleware, async (req, res) => {
   const { id } = req.params;
-  const { mesa_quota, cadeira_extra_quota, password, name } = req.body;
+  const { mesa_quota, cadeira_extra_quota, password } = req.body;
 
   try {
     if (password) {
       const hashedPassword = bcrypt.hashSync(password, 10);
-      db.prepare(
-        "UPDATE users SET mesa_quota = ?, cadeira_extra_quota = ?, password = ?, name = ? WHERE id = ?"
-      ).run(mesa_quota, cadeira_extra_quota, hashedPassword, name, id);
+      await pool.query(
+        "UPDATE users SET mesa_quota = $1, cadeira_extra_quota = $2, password = $3 WHERE id = $4",
+        [mesa_quota, cadeira_extra_quota, hashedPassword, id]
+      );
     } else {
-      db.prepare(
-        "UPDATE users SET mesa_quota = ?, cadeira_extra_quota = ?, name = ? WHERE id = ?"
-      ).run(mesa_quota, cadeira_extra_quota, name, id);
+      await pool.query(
+        "UPDATE users SET mesa_quota = $1, cadeira_extra_quota = $2 WHERE id = $3",
+        [mesa_quota, cadeira_extra_quota, id]
+      );
     }
 
     res.json({ success: true });
   } catch (error) {
+    console.error("Error updating user:", error);
     res.status(400).json({ error: "Erro ao atualizar usuário" });
   }
 });
 
-app.delete("/api/users/:id", authMiddleware, adminMiddleware, (req, res) => {
-  const { id } = req.params;
+app.delete(
+  "/api/users/:id",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const { id } = req.params;
 
-  db.prepare("DELETE FROM reservations WHERE user_id = ?").run(id);
-  db.prepare("DELETE FROM users WHERE id = ? AND is_admin = 0").run(id);
+    try {
+      await pool.query("DELETE FROM users WHERE id = $1 AND is_admin = FALSE", [
+        id,
+      ]);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
 
-  res.json({ success: true });
+// Mesas
+app.get("/api/tables", authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM tables ORDER BY name");
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error getting tables:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-app.get("/api/tables", authMiddleware, (req, res) => {
-  const tables = db.prepare("SELECT * FROM tables ORDER BY table_number").all();
-  res.json(tables);
-});
-
-app.post("/api/tables", authMiddleware, adminMiddleware, (req, res) => {
+app.post("/api/tables", authMiddleware, adminMiddleware, async (req, res) => {
   const { table_number, capacity } = req.body;
 
   try {
-    const result = db
-      .prepare("INSERT INTO tables (table_number, capacity) VALUES (?, ?)")
-      .run(table_number, capacity);
+    const result = await pool.query(
+      "INSERT INTO tables (name, capacity) VALUES ($1, $2) RETURNING id",
+      [table_number, capacity]
+    );
 
-    res.json({ id: result.lastInsertRowid, table_number, capacity });
+    res.json({ id: result.rows[0].id, table_number, capacity });
   } catch (error) {
+    console.error("Error creating table:", error);
     res.status(400).json({ error: "Mesa já existe" });
   }
 });
 
-app.delete("/api/tables/:id", authMiddleware, adminMiddleware, (req, res) => {
-  const { id } = req.params;
+app.delete(
+  "/api/tables/:id",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const { id } = req.params;
 
-  db.prepare("DELETE FROM reservations WHERE table_id = ?").run(id);
-  db.prepare("DELETE FROM tables WHERE id = ?").run(id);
+    try {
+      await pool.query("DELETE FROM tables WHERE id = $1", [id]);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting table:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
 
-  res.json({ success: true });
-});
-
-app.get("/api/reservations", authMiddleware, (req, res) => {
+// Reservas
+app.get("/api/reservations", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
     console.log("Getting reservations for user:", userId);
 
-    const reservations = db
-      .prepare(
-        `
-      SELECT r.*, t.table_number, t.capacity
-      FROM reservations r 
-      JOIN tables t ON r.table_id = t.id
-      WHERE r.user_id = ?
-    `
-      )
-      .all(userId);
+    const result = await pool.query(
+      `SELECT r.*, t.name as table_number, t.capacity
+       FROM reservations r 
+       JOIN tables t ON r.table_id = t.id
+       WHERE r.user_id = $1`,
+      [userId]
+    );
 
-    console.log("Reservations found:", reservations.length);
-    res.json(reservations);
+    console.log("Reservations found:", result.rows.length);
+    res.json(result.rows);
   } catch (error) {
     console.error("Error getting reservations:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get("/api/reservations/chairs", authMiddleware, (req, res) => {
+app.get("/api/reservations/chairs", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    //recuperar somatório de cadeiras extras da reserva do usuário mas também da quota do usuário
     console.log("Getting extra chairs for user:", userId);
-    const reservation = db
-      .prepare(
-        `SELECT SUM(chairs) AS total_chairs
-            FROM (
-                SELECT u.cadeira_extra_quota AS chairs
-                FROM users u
-                WHERE u.id = ?
 
-                UNION ALL
+    const result = await pool.query(
+      `SELECT COALESCE(SUM(chairs), 0) AS total_chairs
+       FROM (
+         SELECT cadeira_extra_quota AS chairs
+         FROM users
+         WHERE id = $1
+         
+         UNION ALL
+         
+         SELECT COALESCE(SUM(t.capacity), 0) AS chairs
+         FROM reservations r
+         JOIN tables t ON r.table_id = t.id
+         WHERE r.user_id = $1
+       ) AS combined`,
+      [userId]
+    );
 
-                SELECT SUM(t.capacity) AS chairs
-                FROM reservations r
-                JOIN tables t ON r.table_id = t.id
-                WHERE r.user_id = ?
-            ) AS combined;`
-      )
-      .get(userId, userId);
-
-    console.log("Total chairs:", reservation);
-    res.json(reservation);
+    console.log("Total chairs:", result.rows[0]);
+    res.json(result.rows[0]);
   } catch (error) {
     console.error("Error getting extra chairs:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get("/api/relatorio", authMiddleware, adminMiddleware, (req, res) => {
+app.get("/api/relatorio", authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const reservations = db
-      .prepare(
-        `   
-      SELECT g.name as convidado, u.name, u.username
-      FROM guests g
-      JOIN users u ON u.id = g.user_id
-      `
-      )
-      .all();
-    res.json(reservations);
+    const result = await pool.query(
+      `SELECT g.name as convidado, u.username
+       FROM guests g
+       JOIN users u ON u.id = g.user_id
+       ORDER BY u.username, g.name`
+    );
+    res.json(result.rows);
   } catch (error) {
     console.error("Error getting relatorio:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get("/api/reservations/all", authMiddleware, (req, res) => {
-  const reservations = db
-    .prepare(
-      `
-    SELECT r.*, t.table_number, t.capacity, u.username 
-    FROM reservations r 
-    JOIN tables t ON r.table_id = t.id 
-    JOIN users u ON r.user_id = u.id
-  `
-    )
-    .all();
-
-  res.json(reservations);
-});
-
-app.post("/api/reservations", authMiddleware, (req, res) => {
-  const { table_id, extra_chairs } = req.body;
-  const userId = req.user.id;
-
+app.get("/api/reservations/all", authMiddleware, async (req, res) => {
   try {
-    //verifia se está reservada
-    const existingReservation = db
-      .prepare("SELECT * FROM reservations WHERE table_id = ?")
-      .get(table_id);
-
-    if (existingReservation) {
-      throw new Error("Mesa já reservada");
-    }
-
-    const result = db
-      .prepare(
-        "INSERT INTO reservations (user_id, table_id, extra_chairs) VALUES (?, ?, ?)"
-      )
-      .run(userId, table_id, extra_chairs || 0);
-
-    res.json({ id: result.lastInsertRowid });
+    const result = await pool.query(
+      `SELECT r.*, t.name as table_number, t.capacity, u.username 
+       FROM reservations r 
+       JOIN tables t ON r.table_id = t.id 
+       JOIN users u ON r.user_id = u.id
+       ORDER BY t.name`
+    );
+    res.json(result.rows);
   } catch (error) {
-    res.status(400).json({ error: "Mesa já reservada" });
-  }
-});
-
-// Convidados
-app.get("/api/guests", authMiddleware, (req, res) => {
-  try {
-    const userId = req.user.id;
-    console.log("Getting guests for user:", userId);
-
-    const guests = db
-      .prepare("SELECT * FROM guests WHERE user_id = ?")
-      .all(userId);
-
-    console.log("Guests found:", guests.length);
-    res.json(guests);
-  } catch (error) {
-    console.error("Error getting guests:", error);
+    console.error("Error getting all reservations:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.post("/api/guests", authMiddleware, (req, res) => {
+app.post("/api/reservations", authMiddleware, async (req, res) => {
+  const { table_id, extra_chairs } = req.body;
   const userId = req.user.id;
-  const { name } = req.body;
-  if (!name || !name.trim()) {
-    return res.status(400).json({ error: "Nome obrigatório" });
+
+  try {
+    // Verificar se está reservada
+    const existingReservation = await pool.query(
+      "SELECT * FROM reservations WHERE table_id = $1",
+      [table_id]
+    );
+
+    if (existingReservation.rows.length > 0) {
+      return res.status(400).json({ error: "Mesa já reservada" });
+    }
+
+    const result = await pool.query(
+      "INSERT INTO reservations (user_id, table_id) VALUES ($1, $2) RETURNING id",
+      [userId, table_id]
+    );
+
+    res.json({ id: result.rows[0].id });
+  } catch (error) {
+    console.error("Error creating reservation:", error);
+    res.status(400).json({ error: "Erro ao criar reserva" });
   }
-  const result = db
-    .prepare("INSERT INTO guests (user_id, name) VALUES (?, ?)")
-    .run(userId, name.trim());
-  res.json({ id: result.lastInsertRowid, name });
 });
 
-app.delete("/api/guests/:id", authMiddleware, (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
-  db.prepare("DELETE FROM guests WHERE id = ? AND user_id = ?").run(id, userId);
-  res.json({ success: true });
-});
-
-app.delete("/api/reservations/:id", authMiddleware, (req, res) => {
+app.delete("/api/reservations/:id", authMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
 
   try {
     // Contar convidados do usuário
-    const guestCount = db
-      .prepare("SELECT COUNT(*) as count FROM guests WHERE user_id = ?")
-      .get(userId).count;
+    const guestCountResult = await pool.query(
+      "SELECT COUNT(*) as count FROM guests WHERE user_id = $1",
+      [userId]
+    );
+    const guestCount = parseInt(guestCountResult.rows[0].count);
 
     // Calcular capacidade total APÓS a exclusão da reserva
-    const futureCapacity = db
-      .prepare(
-        `SELECT SUM(chairs) AS total_chairs
-        FROM (
-            SELECT u.cadeira_extra_quota AS chairs
-            FROM users u
-            WHERE u.id = ?
+    const futureCapacityResult = await pool.query(
+      `SELECT COALESCE(SUM(chairs), 0) AS total_chairs
+       FROM (
+         SELECT cadeira_extra_quota AS chairs
+         FROM users
+         WHERE id = $1
+         
+         UNION ALL
+         
+         SELECT COALESCE(SUM(t.capacity), 0) AS chairs
+         FROM reservations r
+         JOIN tables t ON r.table_id = t.id
+         WHERE r.user_id = $1 AND r.id != $2
+       ) AS combined`,
+      [userId, id]
+    );
 
-            UNION ALL
-
-            SELECT SUM(t.capacity) AS chairs
-            FROM reservations r
-            JOIN tables t ON r.table_id = t.id
-            WHERE r.user_id = ? AND r.id != ?
-        ) AS combined;`
-      )
-      .get(userId, userId, id);
-
-    const totalCapacityAfterDelete = futureCapacity.total_chairs || 0;
+    const totalCapacityAfterDelete =
+      parseInt(futureCapacityResult.rows[0].total_chairs) || 0;
 
     // Verificar se a quantidade de convidados será maior que a capacidade após exclusão
     if (guestCount > totalCapacityAfterDelete) {
@@ -356,9 +351,9 @@ app.delete("/api/reservations/:id", authMiddleware, (req, res) => {
     }
 
     // Se passou na validação, pode excluir
-    db.prepare("DELETE FROM reservations WHERE id = ? AND user_id = ?").run(
-      id,
-      userId
+    await pool.query(
+      "DELETE FROM reservations WHERE id = $1 AND user_id = $2",
+      [id, userId]
     );
     res.json({ success: true });
   } catch (error) {
@@ -367,39 +362,130 @@ app.delete("/api/reservations/:id", authMiddleware, (req, res) => {
   }
 });
 
-app.get("/api/event-config", authMiddleware, (req, res) => {
-  const config = db.prepare("SELECT * FROM event_config WHERE id = 1").get();
-  res.json(config || { event_image: "" });
+// Convidados
+app.get("/api/guests", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log("Getting guests for user:", userId);
+
+    const result = await pool.query(
+      "SELECT * FROM guests WHERE user_id = $1 ORDER BY name",
+      [userId]
+    );
+
+    console.log("Guests found:", result.rows.length);
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error getting guests:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-app.put("/api/event-config", authMiddleware, adminMiddleware, (req, res) => {
-  const { event_image } = req.body;
-  db.prepare("UPDATE event_config SET event_image = ? WHERE id = 1").run(
-    event_image
-  );
-  res.json({ success: true });
+app.post("/api/guests", authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  const { name } = req.body;
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: "Nome obrigatório" });
+  }
+
+  try {
+    const result = await pool.query(
+      "INSERT INTO guests (user_id, name) VALUES ($1, $2) RETURNING id",
+      [userId, name.trim()]
+    );
+
+    res.json({ id: result.rows[0].id, name: name.trim() });
+  } catch (error) {
+    console.error("Error creating guest:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// Novo endpoint para upload de imagem
+app.delete("/api/guests/:id", authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+
+  try {
+    await pool.query("DELETE FROM guests WHERE id = $1 AND user_id = $2", [
+      id,
+      userId,
+    ]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting guest:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Configuração do evento
+app.get("/api/event-config", authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM event_config LIMIT 1");
+    res.json(result.rows[0] || { event_image: "" });
+  } catch (error) {
+    console.error("Error getting event config:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put(
+  "/api/event-config",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const { event_image } = req.body;
+
+    try {
+      await pool.query(
+        "UPDATE event_config SET event_image = $1, updated_at = CURRENT_TIMESTAMP",
+        [event_image]
+      );
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating event config:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
 app.post(
   "/api/event-config/upload",
   authMiddleware,
   adminMiddleware,
   upload.single("file"),
-  (req, res) => {
+  async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "Arquivo não enviado" });
     }
-    const base64Image = `data:${
-      req.file.mimetype
-    };base64,${req.file.buffer.toString("base64")}`;
-    db.prepare("UPDATE event_config SET event_image = ? WHERE id = 1").run(
-      base64Image
-    );
-    res.json({ success: true, event_image: base64Image });
+
+    try {
+      const base64Image = `data:${
+        req.file.mimetype
+      };base64,${req.file.buffer.toString("base64")}`;
+
+      await pool.query(
+        "UPDATE event_config SET event_image = $1, updated_at = CURRENT_TIMESTAMP",
+        [base64Image]
+      );
+
+      res.json({ success: true, event_image: base64Image });
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      res.status(500).json({ error: error.message });
+    }
   }
 );
 
-app.listen(PORT, () => {
-  console.log(`Servidor rodando em http://localhost:${PORT}`);
-});
+// Inicializar banco de dados e servidor
+initializeDatabase()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Servidor rodando em http://localhost:${PORT}`);
+      console.log("Banco de dados PostgreSQL conectado!");
+    });
+  })
+  .catch((error) => {
+    console.error("Erro ao inicializar servidor:", error);
+    process.exit(1);
+  });

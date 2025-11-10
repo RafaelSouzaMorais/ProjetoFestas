@@ -1,115 +1,174 @@
-import Database from "better-sqlite3";
-import bcrypt from "bcryptjs";
-import path from "path";
-import { fileURLToPath } from "url";
+const { Pool } = require("pg");
+require("dotenv").config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Primeiro, criar uma conexão sem especificar o database para verificar/criar
+const createDatabaseIfNotExists = async () => {
+  const adminPool = new Pool({
+    host: process.env.DB_HOST || "localhost",
+    port: process.env.DB_PORT || 5432,
+    database: "postgres", // Conecta ao banco padrão
+    user: process.env.DB_USER || "postgres",
+    password: process.env.DB_PASSWORD,
+  });
 
-const db = new Database(path.join(__dirname, "festa.db"));
+  try {
+    const dbName = process.env.DB_NAME || "projeto_festas";
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    is_admin INTEGER DEFAULT 0,
-    mesa_quota INTEGER DEFAULT 0,
-    cadeira_extra_quota INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+    // Verificar se o banco existe
+    const result = await adminPool.query(
+      "SELECT 1 FROM pg_database WHERE datname = $1",
+      [dbName]
+    );
 
-  CREATE TABLE IF NOT EXISTS tables (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    table_number TEXT UNIQUE NOT NULL,
-    capacity INTEGER NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS reservations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    table_id INTEGER NOT NULL,
-    extra_chairs INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (table_id) REFERENCES tables(id),
-    UNIQUE(user_id, table_id)
-  );
-
-  CREATE TABLE IF NOT EXISTS event_config (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    event_image TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS guests (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-`);
-
-// Migração: verificar e atualizar tabela guests se necessário
-try {
-  const tableInfo = db.pragma("table_info(guests)");
-  const hasUserId = tableInfo.some((col) => col.name === "user_id");
-  const hasReservationId = tableInfo.some(
-    (col) => col.name === "reservation_id"
-  );
-
-  if (hasReservationId && !hasUserId) {
-    console.log("Migrando tabela guests de reservation_id para user_id...");
-
-    // Criar tabela temporária com nova estrutura
-    db.exec(`
-      CREATE TABLE guests_new (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      );
-    `);
-
-    // Copiar dados convertendo reservation_id para user_id
-    db.exec(`
-      INSERT INTO guests_new (id, user_id, name, created_at)
-      SELECT g.id, r.user_id, g.name, g.created_at
-      FROM guests g
-      JOIN reservations r ON g.reservation_id = r.id;
-    `);
-
-    // Substituir tabela antiga pela nova
-    db.exec(`
-      DROP TABLE guests;
-      ALTER TABLE guests_new RENAME TO guests;
-    `);
-
-    console.log("Migração concluída com sucesso!");
+    if (result.rows.length === 0) {
+      // Banco não existe, criar
+      console.log(`Criando banco de dados '${dbName}'...`);
+      await adminPool.query(`CREATE DATABASE ${dbName}`);
+      console.log(`Banco de dados '${dbName}' criado com sucesso!`);
+    } else {
+      console.log(`Banco de dados '${dbName}' já existe.`);
+    }
+  } catch (error) {
+    console.error("Erro ao verificar/criar banco de dados:", error.message);
+    throw error;
+  } finally {
+    await adminPool.end();
   }
-} catch (error) {
-  console.error("Erro na migração:", error.message);
-}
+};
 
-const adminExists = db.prepare("SELECT id FROM users WHERE is_admin = 1").get();
-if (!adminExists) {
-  const hashedPassword = bcrypt.hashSync("admin123", 10);
-  db.prepare(
-    "INSERT INTO users (username, password, is_admin) VALUES (?, ?, 1)"
-  ).run("admin", hashedPassword);
-  console.log("Admin padrão criado: username=admin, password=admin123");
-}
+// Pool de conexão para o banco de dados da aplicação
+const pool = new Pool({
+  host: process.env.DB_HOST || "localhost",
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME || "projeto_festas",
+  user: process.env.DB_USER || "postgres",
+  password: process.env.DB_PASSWORD,
+});
 
-const eventConfig = db
-  .prepare("SELECT id FROM event_config WHERE id = 1")
-  .get();
-if (!eventConfig) {
-  db.prepare("INSERT INTO event_config (id, event_image) VALUES (1, ?)").run(
-    ""
-  );
-}
+// Inicializar banco de dados
+const initializeDatabase = async () => {
+  // Primeiro, garantir que o banco existe
+  await createDatabaseIfNotExists();
 
-export default db;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Criar tabela de usuários
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255),
+        username VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        is_admin BOOLEAN DEFAULT FALSE,
+        mesa_quota INTEGER DEFAULT 0,
+        cadeira_extra_quota INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Adicionar coluna name se não existir (para bancos já criados)
+    await client.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'users' AND column_name = 'name'
+        ) THEN
+          ALTER TABLE users ADD COLUMN name VARCHAR(255);
+        END IF;
+      END $$;
+    `);
+
+    // Criar tabela de mesas
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tables (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        capacity INTEGER NOT NULL,
+        status VARCHAR(50) DEFAULT 'available',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Criar tabela de reservas
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS reservations (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        table_id INTEGER NOT NULL,
+        reserved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE CASCADE,
+        UNIQUE (table_id)
+      )
+    `);
+
+    // Criar tabela de convidados
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS guests (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Criar tabela de configuração do evento
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS event_config (
+        id SERIAL PRIMARY KEY,
+        event_image TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Verificar se já existe um registro de configuração
+    const configResult = await client.query(
+      "SELECT COUNT(*) as count FROM event_config"
+    );
+    if (parseInt(configResult.rows[0].count) === 0) {
+      await client.query("INSERT INTO event_config (event_image) VALUES ($1)", [
+        "",
+      ]);
+    }
+
+    // Criar usuário admin padrão se não existir
+    const adminResult = await client.query(
+      "SELECT COUNT(*) as count FROM users WHERE username = $1",
+      ["admin"]
+    );
+    if (parseInt(adminResult.rows[0].count) === 0) {
+      const bcrypt = require("bcryptjs");
+      const hashedPassword = await bcrypt.hash("admin123", 10);
+      await client.query(
+        "INSERT INTO users (username, password, is_admin, mesa_quota, cadeira_extra_quota) VALUES ($1, $2, $3, $4, $5)",
+        ["admin", hashedPassword, true, 0, 0]
+      );
+      console.log("Usuário admin criado com sucesso!");
+    }
+
+    await client.query("COMMIT");
+    console.log("Banco de dados PostgreSQL inicializado com sucesso!");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Erro ao inicializar banco de dados:", error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+// Executar migrations se necessário
+const runMigrations = async () => {
+  // Adicione aqui migrations futuras se necessário
+  console.log("Migrations concluídas!");
+};
+
+module.exports = {
+  pool,
+  initializeDatabase,
+  runMigrations,
+};
