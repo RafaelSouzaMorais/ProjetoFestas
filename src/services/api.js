@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.PROD ? "/api" : "http://localhost:3001/api",
+  baseURL: import.meta.env.PROD ? "/api" : "http://localhost:3100/api",
 });
 
 api.interceptors.request.use((config) => {
@@ -48,8 +48,16 @@ export const getReservations = () => {
   return api.get("/reservations");
 };
 
+export const getChairsReservations = () => {
+  return api.get("/reservations/chairs");
+};
+
 export const getAllReservations = () => {
   return api.get("/reservations/all");
+};
+
+export const getRelatorio = () => {
+  return api.get("/relatorio");
 };
 
 export const createReservation = (reservationData) => {
@@ -58,6 +66,19 @@ export const createReservation = (reservationData) => {
 
 export const deleteReservation = (id) => {
   return api.delete(`/reservations/${id}`);
+};
+
+// Convidados
+export const getGuests = () => {
+  return api.get("/guests");
+};
+
+export const addGuest = (name) => {
+  return api.post("/guests", { name });
+};
+
+export const removeGuest = (guestId) => {
+  return api.delete(`/guests/${guestId}`);
 };
 export const getEventConfig = () => {
   return api.get("/event-config");

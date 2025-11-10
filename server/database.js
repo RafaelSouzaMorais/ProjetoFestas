@@ -42,7 +42,57 @@ db.exec(`
     id INTEGER PRIMARY KEY CHECK (id = 1),
     event_image TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS guests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
 `);
+
+// Migração: verificar e atualizar tabela guests se necessário
+try {
+  const tableInfo = db.pragma("table_info(guests)");
+  const hasUserId = tableInfo.some((col) => col.name === "user_id");
+  const hasReservationId = tableInfo.some(
+    (col) => col.name === "reservation_id"
+  );
+
+  if (hasReservationId && !hasUserId) {
+    console.log("Migrando tabela guests de reservation_id para user_id...");
+
+    // Criar tabela temporária com nova estrutura
+    db.exec(`
+      CREATE TABLE guests_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Copiar dados convertendo reservation_id para user_id
+    db.exec(`
+      INSERT INTO guests_new (id, user_id, name, created_at)
+      SELECT g.id, r.user_id, g.name, g.created_at
+      FROM guests g
+      JOIN reservations r ON g.reservation_id = r.id;
+    `);
+
+    // Substituir tabela antiga pela nova
+    db.exec(`
+      DROP TABLE guests;
+      ALTER TABLE guests_new RENAME TO guests;
+    `);
+
+    console.log("Migração concluída com sucesso!");
+  }
+} catch (error) {
+  console.error("Erro na migração:", error.message);
+}
 
 const adminExists = db.prepare("SELECT id FROM users WHERE is_admin = 1").get();
 if (!adminExists) {

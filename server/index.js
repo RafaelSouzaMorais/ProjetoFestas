@@ -5,11 +5,15 @@ import jwt from "jsonwebtoken";
 import db from "./database.js";
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3100;
 const JWT_SECRET = "festa-secret-key-2025";
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+import multer from "multer";
+const upload = multer({ limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
 
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -161,20 +165,76 @@ app.delete("/api/tables/:id", authMiddleware, adminMiddleware, (req, res) => {
 });
 
 app.get("/api/reservations", authMiddleware, (req, res) => {
-  const userId = req.user.id;
+  try {
+    const userId = req.user.id;
+    console.log("Getting reservations for user:", userId);
 
-  const reservations = db
-    .prepare(
+    const reservations = db
+      .prepare(
+        `
+      SELECT r.*, t.table_number, t.capacity
+      FROM reservations r 
+      JOIN tables t ON r.table_id = t.id
+      WHERE r.user_id = ?
+    `
+      )
+      .all(userId);
+
+    console.log("Reservations found:", reservations.length);
+    res.json(reservations);
+  } catch (error) {
+    console.error("Error getting reservations:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/reservations/chairs", authMiddleware, (req, res) => {
+  try {
+    const userId = req.user.id;
+    //recuperar somatório de cadeiras extras da reserva do usuário mas também da quota do usuário
+    console.log("Getting extra chairs for user:", userId);
+    const reservation = db
+      .prepare(
+        `SELECT SUM(chairs) AS total_chairs
+            FROM (
+                SELECT u.cadeira_extra_quota AS chairs
+                FROM users u
+                WHERE u.id = ?
+
+                UNION ALL
+
+                SELECT SUM(t.capacity) AS chairs
+                FROM reservations r
+                JOIN tables t ON r.table_id = t.id
+                WHERE r.user_id = ?
+            ) AS combined;`
+      )
+      .get(userId, userId);
+
+    console.log("Total chairs:", reservation);
+    res.json(reservation);
+  } catch (error) {
+    console.error("Error getting extra chairs:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/relatorio", authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const reservations = db
+      .prepare(
+        `   
+      SELECT g.name as convidado, u.name, u.username
+      FROM guests g
+      JOIN users u ON u.id = g.user_id
       `
-    SELECT r.*, t.table_number, t.capacity 
-    FROM reservations r 
-    JOIN tables t ON r.table_id = t.id 
-    WHERE r.user_id = ?
-  `
-    )
-    .all(userId);
-
-  res.json(reservations);
+      )
+      .all();
+    res.json(reservations);
+  } catch (error) {
+    console.error("Error getting relatorio:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get("/api/reservations/all", authMiddleware, (req, res) => {
@@ -218,15 +278,50 @@ app.post("/api/reservations", authMiddleware, (req, res) => {
   }
 });
 
+// Convidados
+app.get("/api/guests", authMiddleware, (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log("Getting guests for user:", userId);
+
+    const guests = db
+      .prepare("SELECT * FROM guests WHERE user_id = ?")
+      .all(userId);
+
+    console.log("Guests found:", guests.length);
+    res.json(guests);
+  } catch (error) {
+    console.error("Error getting guests:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/guests", authMiddleware, (req, res) => {
+  const userId = req.user.id;
+  const { name } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: "Nome obrigatório" });
+  }
+  const result = db
+    .prepare("INSERT INTO guests (user_id, name) VALUES (?, ?)")
+    .run(userId, name.trim());
+  res.json({ id: result.lastInsertRowid, name });
+});
+
+app.delete("/api/guests/:id", authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  db.prepare("DELETE FROM guests WHERE id = ? AND user_id = ?").run(id, userId);
+  res.json({ success: true });
+});
+
 app.delete("/api/reservations/:id", authMiddleware, (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
-
   db.prepare("DELETE FROM reservations WHERE id = ? AND user_id = ?").run(
     id,
     userId
   );
-
   res.json({ success: true });
 });
 
@@ -237,13 +332,31 @@ app.get("/api/event-config", authMiddleware, (req, res) => {
 
 app.put("/api/event-config", authMiddleware, adminMiddleware, (req, res) => {
   const { event_image } = req.body;
-
   db.prepare("UPDATE event_config SET event_image = ? WHERE id = 1").run(
     event_image
   );
-
   res.json({ success: true });
 });
+
+// Novo endpoint para upload de imagem
+app.post(
+  "/api/event-config/upload",
+  authMiddleware,
+  adminMiddleware,
+  upload.single("file"),
+  (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "Arquivo não enviado" });
+    }
+    const base64Image = `data:${
+      req.file.mimetype
+    };base64,${req.file.buffer.toString("base64")}`;
+    db.prepare("UPDATE event_config SET event_image = ? WHERE id = 1").run(
+      base64Image
+    );
+    res.json({ success: true, event_image: base64Image });
+  }
+);
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);

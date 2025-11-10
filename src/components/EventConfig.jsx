@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Card, Input, Button, message, Image } from "antd";
-import { SaveOutlined } from "@ant-design/icons";
+import { Card, Button, message, Image, Upload } from "antd";
+import { SaveOutlined, UploadOutlined } from "@ant-design/icons";
 import { getEventConfig, updateEventConfig } from "../services/api";
 
 const EventConfig = () => {
   const [eventImage, setEventImage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fileList, setFileList] = useState([]);
 
   useEffect(() => {
     loadConfig();
@@ -20,13 +21,50 @@ const EventConfig = () => {
     }
   };
 
+  const handleUpload = ({ file }) => {
+    // Não faz nada, pois o processamento será feito no onChange
+    return false;
+  };
+
+  // Atualiza eventImage ao selecionar arquivo
+  const handleChange = ({ fileList }) => {
+    setFileList(fileList);
+    if (fileList.length > 0) {
+      const file = fileList[0].originFileObj;
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const base64String = e.target.result;
+          setEventImage(base64String);
+          message.success("Imagem carregada! Clique em Salvar para confirmar.");
+        };
+        reader.readAsDataURL(file);
+      }
+    } else {
+      setEventImage("");
+    }
+  };
   const handleSave = async () => {
+    if (!fileList.length || !fileList[0].originFileObj) {
+      message.warning("Selecione uma imagem primeiro");
+      return;
+    }
+
     setLoading(true);
     try {
-      await updateEventConfig({ event_image: eventImage });
+      const formData = new FormData();
+      formData.append("file", fileList[0].originFileObj);
+
+      // Usar axios para garantir baseURL correta
+      const { default: api } = await import("../services/api");
+      const response = await api.post("/event-config/upload", formData);
+      setEventImage(response.data.event_image);
       message.success("Configuração salva com sucesso!");
+      setFileList([]);
     } catch (error) {
-      message.error("Erro ao salvar configuração");
+      message.error(
+        error?.response?.data?.error || "Erro ao salvar configuração"
+      );
     } finally {
       setLoading(false);
     }
@@ -36,19 +74,25 @@ const EventConfig = () => {
     <Card title="Configuração do Evento">
       <div style={{ marginBottom: 16 }}>
         <label style={{ display: "block", marginBottom: 8 }}>
-          URL da Imagem do Evento
+          Imagem do Evento
         </label>
-        <Input
-          value={eventImage}
-          onChange={(e) => setEventImage(e.target.value)}
-          placeholder="https://exemplo.com/imagem.jpg"
-          style={{ marginBottom: 16 }}
-        />
+        <Upload
+          beforeUpload={handleUpload}
+          fileList={fileList}
+          onChange={handleChange}
+          maxCount={1}
+          accept="image/*"
+          listType="picture"
+        >
+          <Button icon={<UploadOutlined />}>Selecionar Imagem</Button>
+        </Upload>
         <Button
           type="primary"
           icon={<SaveOutlined />}
           onClick={handleSave}
           loading={loading}
+          style={{ marginTop: 16 }}
+          disabled={!eventImage}
         >
           Salvar
         </Button>

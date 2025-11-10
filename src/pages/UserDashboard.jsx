@@ -1,17 +1,33 @@
 import { useState, useEffect } from "react";
-import { Layout, Button, message, Card, Image } from "antd";
-import { LogoutOutlined, CalendarOutlined } from "@ant-design/icons";
+import { Layout, Button, message, Card, Image, Menu } from "antd";
+import {
+  LogoutOutlined,
+  CalendarOutlined,
+  TeamOutlined,
+} from "@ant-design/icons";
 import { getEventConfig } from "../services/api";
 import ReservationModal from "../components/ReservationModal";
+import GuestManager from "../components/GuestManagerNew";
 
-const { Header, Content } = Layout;
+const { Header, Content, Sider } = Layout;
 
 const UserDashboard = ({ user, onLogout }) => {
   const [eventImage, setEventImage] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
+  const [selectedMenu, setSelectedMenu] = useState("home");
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   useEffect(() => {
     loadEventConfig();
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const loadEventConfig = async () => {
@@ -29,51 +45,10 @@ const UserDashboard = ({ user, onLogout }) => {
     onLogout();
   };
 
-  return (
-    <Layout style={{ minHeight: "100vh" }}>
-      <Header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          padding: "0 16px",
-        }}
-      >
-        <div style={{ color: "white", fontSize: "18px", fontWeight: "bold" }}>
-          Reservas
-        </div>
-        <div
-          style={{
-            color: "white",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          <span
-            style={{
-              display: "inline-block",
-              maxWidth: "150px",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {user.username}
-          </span>
-          <Button
-            type="link"
-            icon={<LogoutOutlined />}
-            onClick={handleLogout}
-            style={{ color: "white", padding: "4px 8px" }}
-          >
-            <span style={{ display: "none" }}>Sair</span>
-          </Button>
-        </div>
-      </Header>
-
-      <Content style={{ padding: "16px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+  const renderContent = () => {
+    switch (selectedMenu) {
+      case "home":
+        return (
           <Card
             cover={
               eventImage ? (
@@ -128,8 +103,106 @@ const UserDashboard = ({ user, onLogout }) => {
               </Button>
             </div>
           </Card>
+        );
+      case "guests":
+        return <GuestManager />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Layout style={{ minHeight: "100vh" }}>
+      <Header
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          padding: "0 16px",
+        }}
+      >
+        <div style={{ color: "white", fontSize: "18px", fontWeight: "bold" }}>
+          Reservas
         </div>
-      </Content>
+        <div
+          style={{
+            color: "white",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <span
+            style={{
+              display: "inline-block",
+              maxWidth: "150px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {user.username}
+          </span>
+          <Button
+            type="link"
+            icon={<LogoutOutlined />}
+            onClick={handleLogout}
+            style={{ color: "white", padding: "4px 8px" }}
+          >
+            <span style={{ display: "none" }}>Sair</span>
+          </Button>
+        </div>
+      </Header>
+
+      <Layout>
+        <Sider
+          width={isMobile ? 50 : 80}
+          theme="light"
+          collapsedWidth={isMobile ? 50 : 80}
+          collapsed={true}
+          style={{
+            overflow: "auto",
+            height: "calc(100vh - 64px)",
+            position: "sticky",
+            top: 64,
+            left: 0,
+          }}
+        >
+          <Menu
+            mode="inline"
+            selectedKeys={[selectedMenu]}
+            style={{ height: "100%", borderRight: 0 }}
+            onSelect={({ key }) => setSelectedMenu(key)}
+            inlineCollapsed={true}
+            items={[
+              {
+                key: "home",
+                icon: <CalendarOutlined />,
+                label: "Início",
+              },
+              {
+                key: "guests",
+                icon: <TeamOutlined />,
+                label: "Convidados",
+              },
+            ]}
+          />
+        </Sider>
+        <Layout style={{ padding: isMobile ? "8px" : "16px" }}>
+          <Content
+            style={{
+              padding: isMobile ? 8 : 16,
+              margin: 0,
+              minHeight: 280,
+              background: "white",
+              borderRadius: 8,
+              overflow: "auto",
+            }}
+          >
+            {renderContent()}
+          </Content>
+        </Layout>
+      </Layout>
 
       <ReservationModal
         visible={modalVisible}

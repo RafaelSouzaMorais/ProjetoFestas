@@ -16,6 +16,16 @@ const { Header, Content, Sider } = Layout;
 
 const AdminDashboard = ({ user, onLogout }) => {
   const [selectedMenu, setSelectedMenu] = useState("users");
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -68,7 +78,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               textOverflow: "ellipsis",
             }}
           >
-            {user.username}
+            {user.name}
           </span>
           <Button
             type="link"
@@ -82,10 +92,10 @@ const AdminDashboard = ({ user, onLogout }) => {
       </Header>
       <Layout>
         <Sider
-          width={200}
+          width={isMobile ? 60 : 80}
           theme="light"
-          breakpoint="lg"
-          collapsedWidth="0"
+          collapsedWidth={isMobile ? 60 : 80}
+          collapsed={true}
           style={{
             overflow: "auto",
             height: "calc(100vh - 64px)",
@@ -99,6 +109,7 @@ const AdminDashboard = ({ user, onLogout }) => {
             selectedKeys={[selectedMenu]}
             style={{ height: "100%", borderRight: 0 }}
             onSelect={({ key }) => setSelectedMenu(key)}
+            inlineCollapsed={true}
             items={[
               {
                 key: "users",

@@ -8,6 +8,7 @@ import {
   deleteReservation,
   getAllReservations,
 } from "../services/api";
+import { rules } from "eslint-plugin-react-refresh";
 
 const ReservationModal = ({ visible, onClose, user }) => {
   const [tables, setTables] = useState([]);
@@ -83,6 +84,12 @@ const ReservationModal = ({ visible, onClose, user }) => {
       dataIndex: "table_number",
       key: "table_number",
       render: (text) => <Tag color="blue">{text}</Tag>,
+      rules: { required: true },
+      filter: (value, record) =>
+        record.table_number
+          .toString()
+          .toLowerCase()
+          .includes(value.toLowerCase()),
     },
     {
       title: "Capacidade",
@@ -100,6 +107,18 @@ const ReservationModal = ({ visible, onClose, user }) => {
           return <Tag color="red">Reservada</Tag>;
         }
         return <Tag color="default">Disponível</Tag>;
+      },
+      filters: [
+        { text: "Disponível", value: "available" },
+        { text: "Reservada", value: "reserved" },
+        { text: "Sua Reserva", value: "my_reservation" },
+      ],
+      onFilter: (value, record) => {
+        if (value === "available") return !isTableReserved(record.id);
+        if (value === "reserved")
+          return isTableReserved(record.id) && !isMyReservation(record.id);
+        if (value === "my_reservation") return isMyReservation(record.id);
+        return false;
       },
     },
     {

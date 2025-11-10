@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { Table, Card, Tag, Button, Space } from "antd";
 import { FilePdfOutlined } from "@ant-design/icons";
-import { getAllReservations } from "../services/api";
+import { getAllReservations, getRelatorio } from "../services/api";
 
 const AllReservations = () => {
   const [reservations, setReservations] = useState([]);
+  const [relatorio, setRelatorio] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -15,7 +16,9 @@ const AllReservations = () => {
     setLoading(true);
     try {
       const response = await getAllReservations();
+      const relatorioResponse = await getRelatorio();
       setReservations(response.data);
+      setRelatorio(relatorioResponse.data);
     } catch (error) {
       console.error("Erro ao carregar reservas");
     } finally {
@@ -24,23 +27,41 @@ const AllReservations = () => {
   };
 
   const generateReport = () => {
-    const sortedReservations = [...reservations].sort((a, b) => {
-      return a.table_number.localeCompare(b.table_number, undefined, {
+    const sortedRelatorio = [...relatorio].sort((a, b) => {
+      return a.name.localeCompare(b.name, undefined, {
         numeric: true,
       });
     });
 
     let reportContent = `RELATÓRIO DE RESERVAS\n`;
     reportContent += `Gerado em: ${new Date().toLocaleString("pt-BR")}\n`;
-    reportContent += `Total de Reservas: ${sortedReservations.length}\n\n`;
+    reportContent += `Total de Pessoas: ${sortedRelatorio.length}\n\n`;
     reportContent += `${"=".repeat(80)}\n\n`;
+    //deixando os nomes alinhados
+    const maxConvidadoLength = Math.max(
+      ...sortedRelatorio.map((r) => r.convidado.length)
+    );
+    const maxNameLength = Math.max(
+      ...sortedRelatorio.map((r) => r.name.length)
+    );
+    const maxUsernameLength = Math.max(
+      ...sortedRelatorio.map((r) => r.username.length)
+    );
+    const maxIndentLength = Math.max(
+      ...sortedRelatorio.map((r, i) => (i + 1).toString().length)
+    );
 
-    sortedReservations.forEach((reservation, index) => {
-      reportContent += `${index + 1}. Mesa: ${reservation.table_number}\n`;
-      reportContent += `   Usuário: ${reservation.username}\n`;
-      reportContent += `   Capacidade: ${reservation.capacity} pessoas\n`;
-      reportContent += `   Cadeiras Extra: ${reservation.extra_chairs}\n`;
-      reportContent += `   ${"-".repeat(76)}\n\n`;
+    sortedRelatorio.forEach((reservation, index) => {
+      reportContent +=
+        `${index + 1}.` +
+        " ".repeat(maxIndentLength - (index + 1).toString().length + 2) +
+        `Convidado: ${reservation.convidado}` +
+        " ".repeat(maxConvidadoLength - reservation.convidado.length + 2) +
+        `Dono: ${reservation.name}` +
+        " ".repeat(maxNameLength - reservation.name.length + 2) +
+        `User: ${reservation.username}` +
+        " ".repeat(maxUsernameLength - reservation.username.length + 2) +
+        `\n`;
     });
 
     const blob = new Blob([reportContent], {
@@ -74,11 +95,6 @@ const AllReservations = () => {
       title: "Capacidade",
       dataIndex: "capacity",
       key: "capacity",
-    },
-    {
-      title: "Cadeiras Extra",
-      dataIndex: "extra_chairs",
-      key: "extra_chairs",
     },
   ];
 
