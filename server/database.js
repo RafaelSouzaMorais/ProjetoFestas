@@ -1,6 +1,26 @@
 const { Pool } = require("pg");
 require("dotenv").config();
 
+// Função de retry genérica
+const retry = async (
+  fn,
+  { attempts = 10, delayMs = 2000, label = "operation" } = {}
+) => {
+  let lastErr;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      console.warn(
+        `[Retry] ${label} tentativa ${i}/${attempts} falhou: ${err.message}`
+      );
+      if (i < attempts) await new Promise((res) => setTimeout(res, delayMs));
+    }
+  }
+  throw lastErr;
+};
+
 // Primeiro, criar uma conexão sem especificar o database para verificar/criar
 const createDatabaseIfNotExists = async () => {
   const adminPool = new Pool({
@@ -48,9 +68,18 @@ const pool = new Pool({
 // Inicializar banco de dados
 const initializeDatabase = async () => {
   // Primeiro, garantir que o banco existe
-  await createDatabaseIfNotExists();
+  // Retry para garantir que o servidor aceitou conexões
+  await retry(createDatabaseIfNotExists, {
+    attempts: 12,
+    delayMs: 2500,
+    label: "criar/verificar banco",
+  });
 
-  const client = await pool.connect();
+  const client = await retry(() => pool.connect(), {
+    attempts: 12,
+    delayMs: 2500,
+    label: "conectar pool",
+  });
   try {
     await client.query("BEGIN");
 

@@ -8,7 +8,10 @@
     "client": "vite --port 5190",
     "server": "nodemon server/index.js",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "concurrently \"npm run start:server\" \"npm run start:client\"",
+    "start:server": "node server/index.js",
+    "start:client": "vite preview --host 0.0.0.0 --port 5173"
   },
   "dependencies": {
     "antd": "^5.28.0",
@@ -23,14 +26,16 @@
     "pg": "^8.16.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.9.5"
+    "react-router-dom": "^7.9.5",
+    "serve": "^14.2.3",
+    "concurrently": "^9.2.1",
+    "vite": "^7.1.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.4",
-    "concurrently": "^9.2.1",
     "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",

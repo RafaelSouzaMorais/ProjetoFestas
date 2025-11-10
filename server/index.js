@@ -39,6 +39,11 @@ const adminMiddleware = (req, res, next) => {
   next();
 };
 
+// Healthcheck público
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
 // Login
 app.post("/api/login", async (req, res) => {
   const { username, password } = req.body;

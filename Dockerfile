@@ -1,29 +1,19 @@
-# Stage 1: Build frontend
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 WORKDIR /app
 
 COPY package*.json ./
 COPY vite.config.* ./
 COPY index.html ./
 COPY src ./src
+COPY server ./server
 COPY public ./public
 
 RUN npm install
 RUN npm run build
 
-# Stage 2: Backend
-FROM node:20-alpine AS backend
-WORKDIR /app
-
-COPY --from=builder /app/dist ./dist
-COPY server ./server
-COPY package*.json ./
-RUN npm install --production
-
-RUN mkdir -p /app/server/data
-
-EXPOSE 3001
+EXPOSE 3100
+EXPOSE 5173
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=3100
 
-CMD ["node", "server/index.js"]
+CMD ["npm", "run", "start"]
