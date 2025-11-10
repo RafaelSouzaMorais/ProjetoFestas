@@ -37,6 +37,7 @@ const UserManagement = () => {
     setLoading(true);
     try {
       const response = await getUsers();
+      console.log("Users Response:", response);
       setUsers(response.data.filter((u) => !u.is_admin));
     } catch (error) {
       message.error("Erro ao carregar usuários");
@@ -84,6 +85,7 @@ const UserManagement = () => {
   const handleSubmit = async (values) => {
     try {
       if (editingUser) {
+        console.log("Updating user with ID:", editingUser.id, "Values:", values);
         await updateUser(editingUser.id, values);
         message.success("Usuário atualizado com sucesso!");
       } else {

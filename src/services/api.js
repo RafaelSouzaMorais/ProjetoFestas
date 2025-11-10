@@ -19,7 +19,9 @@ export const login = (username, password) => {
 };
 
 export const getUsers = () => {
-  return api.get("/users");
+  const response = api.get("/users");
+  console.log("Users Response 1:", response);
+  return response;
 };
 
 export const createUser = (userData) => {

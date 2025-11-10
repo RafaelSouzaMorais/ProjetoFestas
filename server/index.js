@@ -88,7 +88,7 @@ app.post("/api/login", async (req, res) => {
 app.get("/api/users", authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, username, is_admin, mesa_quota, cadeira_extra_quota FROM users ORDER BY id"
+      "SELECT id, name, username, is_admin, mesa_quota, cadeira_extra_quota FROM users ORDER BY id"
     );
     res.json(result.rows);
   } catch (error) {
@@ -98,18 +98,25 @@ app.get("/api/users", authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 app.post("/api/users", authMiddleware, adminMiddleware, async (req, res) => {
-  const { username, password, mesa_quota, cadeira_extra_quota } = req.body;
+  const { name, username, password, mesa_quota, cadeira_extra_quota } =
+    req.body;
 
   try {
     const hashedPassword = bcrypt.hashSync(password, 10);
     const result = await pool.query(
-      "INSERT INTO users (username, password, mesa_quota, cadeira_extra_quota) VALUES ($1, $2, $3, $4) RETURNING id",
-      [username, hashedPassword, mesa_quota || 0, cadeira_extra_quota || 0]
+      "INSERT INTO users (name, username, password, mesa_quota, cadeira_extra_quota) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      [
+        name,
+        username,
+        hashedPassword,
+        mesa_quota || 0,
+        cadeira_extra_quota || 0,
+      ]
     );
 
     res.json({
       id: result.rows[0].id,
-      username,
+      name,
       mesa_quota,
       cadeira_extra_quota,
     });
@@ -121,19 +128,20 @@ app.post("/api/users", authMiddleware, adminMiddleware, async (req, res) => {
 
 app.put("/api/users/:id", authMiddleware, adminMiddleware, async (req, res) => {
   const { id } = req.params;
-  const { mesa_quota, cadeira_extra_quota, password } = req.body;
+  const { name, username, mesa_quota, cadeira_extra_quota, password } =
+    req.body;
 
   try {
     if (password) {
       const hashedPassword = bcrypt.hashSync(password, 10);
       await pool.query(
-        "UPDATE users SET mesa_quota = $1, cadeira_extra_quota = $2, password = $3 WHERE id = $4",
-        [mesa_quota, cadeira_extra_quota, hashedPassword, id]
+        "UPDATE users SET name = $1, username = $2, mesa_quota = $3, cadeira_extra_quota = $4, password = $5 WHERE id = $6",
+        [name, username, mesa_quota, cadeira_extra_quota, hashedPassword, id]
       );
     } else {
       await pool.query(
-        "UPDATE users SET mesa_quota = $1, cadeira_extra_quota = $2 WHERE id = $3",
-        [mesa_quota, cadeira_extra_quota, id]
+        "UPDATE users SET name = $1, username = $2, mesa_quota = $3, cadeira_extra_quota = $4 WHERE id = $5",
+        [name, username, mesa_quota, cadeira_extra_quota, id]
       );
     }
 
