@@ -10,11 +10,21 @@ import {
 } from "../services/api";
 import { rules } from "eslint-plugin-react-refresh";
 
+// Configurar z-index alto para as mensagens aparecerem na frente dos modais
+message.config({
+  top: 100,
+  maxCount: 3,
+  duration: 4,
+  getContainer: () => document.body,
+});
+
 const ReservationModal = ({ visible, onClose, user }) => {
   const [tables, setTables] = useState([]);
   const [myReservations, setMyReservations] = useState([]);
   const [allReservations, setAllReservations] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     if (visible) {
@@ -66,7 +76,11 @@ const ReservationModal = ({ visible, onClose, user }) => {
       message.success("Reserva cancelada com sucesso!");
       loadData();
     } catch (error) {
-      message.error("Erro ao cancelar reserva");
+      const errMsg = error.response?.data?.error || "Erro ao cancelar reserva";
+
+      // Mostrar em um modal customizado controlado por estado
+      setErrorMessage(errMsg);
+      setErrorModalVisible(true);
     }
   };
 
@@ -170,32 +184,47 @@ const ReservationModal = ({ visible, onClose, user }) => {
   ];
 
   return (
-    <Modal
-      title="Gerenciar Reservas"
-      open={visible}
-      onCancel={onClose}
-      footer={null}
-      width="100%"
-      style={{ maxWidth: 800, top: 20 }}
-    >
-      <div style={{ marginBottom: 16 }}>
-        <Space direction="vertical" style={{ width: "100%" }}>
-          <Tag color="blue">
-            Mesas: {myReservations.length}/{user.mesa_quota}
-          </Tag>
-          <Tag color="orange">Cadeiras extra: {user.cadeira_extra_quota}</Tag>
-        </Space>
-      </div>
+    <>
+      <Modal
+        title="Não é possível excluir a reserva"
+        open={errorModalVisible}
+        onOk={() => setErrorModalVisible(false)}
+        onCancel={() => setErrorModalVisible(false)}
+        okText="Entendi"
+        cancelButtonProps={{ style: { display: "none" } }}
+        centered
+        zIndex={2000}
+      >
+        <p>{errorMessage}</p>
+      </Modal>
 
-      <Table
-        dataSource={tables}
-        columns={availableTablesColumns}
-        rowKey="id"
-        loading={loading}
-        pagination={{ pageSize: 10 }}
-        scroll={{ x: true }}
-      />
-    </Modal>
+      <Modal
+        title="Gerenciar Reservas"
+        open={visible}
+        onCancel={onClose}
+        footer={null}
+        width="100%"
+        style={{ maxWidth: 800, top: 20 }}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Space direction="vertical" style={{ width: "100%" }}>
+            <Tag color="blue">
+              Mesas: {myReservations.length}/{user.mesa_quota}
+            </Tag>
+            <Tag color="orange">Cadeiras extra: {user.cadeira_extra_quota}</Tag>
+          </Space>
+        </div>
+
+        <Table
+          dataSource={tables}
+          columns={availableTablesColumns}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: true }}
+        />
+      </Modal>
+    </>
   );
 };
 

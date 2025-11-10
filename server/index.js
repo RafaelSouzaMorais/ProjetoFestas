@@ -318,11 +318,53 @@ app.delete("/api/guests/:id", authMiddleware, (req, res) => {
 app.delete("/api/reservations/:id", authMiddleware, (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
-  db.prepare("DELETE FROM reservations WHERE id = ? AND user_id = ?").run(
-    id,
-    userId
-  );
-  res.json({ success: true });
+
+  try {
+    // Contar convidados do usuário
+    const guestCount = db
+      .prepare("SELECT COUNT(*) as count FROM guests WHERE user_id = ?")
+      .get(userId).count;
+
+    // Calcular capacidade total APÓS a exclusão da reserva
+    const futureCapacity = db
+      .prepare(
+        `SELECT SUM(chairs) AS total_chairs
+        FROM (
+            SELECT u.cadeira_extra_quota AS chairs
+            FROM users u
+            WHERE u.id = ?
+
+            UNION ALL
+
+            SELECT SUM(t.capacity) AS chairs
+            FROM reservations r
+            JOIN tables t ON r.table_id = t.id
+            WHERE r.user_id = ? AND r.id != ?
+        ) AS combined;`
+      )
+      .get(userId, userId, id);
+
+    const totalCapacityAfterDelete = futureCapacity.total_chairs || 0;
+
+    // Verificar se a quantidade de convidados será maior que a capacidade após exclusão
+    if (guestCount > totalCapacityAfterDelete) {
+      return res.status(400).json({
+        error: `Não é possível excluir esta reserva. Você tem ${guestCount} convidado(s) cadastrado(s) e após a exclusão terá apenas ${totalCapacityAfterDelete} vaga(s). Exclua ${
+          guestCount - totalCapacityAfterDelete
+        } convidado(s) antes de remover esta reserva.`,
+      });
+    }
+
+    // Se passou na validação, pode excluir
+    db.prepare("DELETE FROM reservations WHERE id = ? AND user_id = ?").run(
+      id,
+      userId
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting reservation:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get("/api/event-config", authMiddleware, (req, res) => {
