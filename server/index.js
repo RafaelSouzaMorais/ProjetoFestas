@@ -3,6 +3,7 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
+const path = require("path");
 const { pool, initializeDatabase } = require("./database.js");
 require("dotenv").config();
 
@@ -13,6 +14,9 @@ const JWT_SECRET = process.env.JWT_SECRET || "festa-secret-key-2025";
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// Servir arquivos estáticos do frontend (fallback)
+app.use(express.static(path.join(__dirname, "..", "dist")));
 
 const upload = multer({ limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
 
@@ -481,6 +485,11 @@ app.post(
     }
   }
 );
+
+// Rota fallback para SPA - deve vir DEPOIS de todas as rotas da API
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
+});
 
 // Inicializar banco de dados e servidor
 initializeDatabase()

@@ -8,6 +8,7 @@ services:
     networks:
       - festa-network
     ports:
+      - "3100:3100"
       - "5173:5173"
     healthcheck:
       test:
