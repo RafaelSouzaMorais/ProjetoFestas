@@ -486,12 +486,6 @@ app.post(
   }
 );
 
-// Rota fallback para SPA - deve vir DEPOIS de todas as rotas da API
-// No Express 5, use "/(.*)" ao invés de "*"
-app.get("/(.*)", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
-});
-
 // Inicializar banco de dados e servidor
 initializeDatabase()
   .then(() => {
