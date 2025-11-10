@@ -64,8 +64,8 @@ const TableManagement = () => {
   const columns = [
     {
       title: "Número da Mesa",
-      dataIndex: "table_number",
-      key: "table_number",
+      dataIndex: "name",
+      key: "name",
     },
     {
       title: "Capacidade",
