@@ -13,9 +13,12 @@ COPY public ./public
 RUN npm install
 RUN npm run build
 
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 EXPOSE 3100
 EXPOSE 5173
 ENV NODE_ENV=production
 ENV PORT=3100
 
-CMD ["npm", "run", "start"]
+CMD ["/app/start.sh"]
