@@ -1,0 +1,7 @@
+{
+  "port": 5173,
+  "healthcheck": {
+    "path": "/",
+    "port": 5173
+  }
+}

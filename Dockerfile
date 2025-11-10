@@ -11,6 +11,7 @@ COPY public ./public
 RUN npm install
 RUN npm run build
 
+EXPOSE 3100
 EXPOSE 5173
 ENV NODE_ENV=production
 ENV PORT=3100
