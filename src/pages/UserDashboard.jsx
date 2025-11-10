@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Layout, Button, message, Card, Image, Menu } from "antd";
+import { Layout, Button, message, Card, Image, Menu, Drawer } from "antd";
 import {
   LogoutOutlined,
   CalendarOutlined,
   TeamOutlined,
+  MenuOutlined,
 } from "@ant-design/icons";
 import { getEventConfig } from "../services/api";
 import ReservationModal from "../components/ReservationModal";
@@ -16,6 +17,7 @@ const UserDashboard = ({ user, onLogout }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState("home");
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   useEffect(() => {
     loadEventConfig();
@@ -122,8 +124,18 @@ const UserDashboard = ({ user, onLogout }) => {
           padding: "0 16px",
         }}
       >
-        <div style={{ color: "white", fontSize: "18px", fontWeight: "bold" }}>
-          Reservas
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {isMobile && (
+            <Button
+              type="text"
+              icon={<MenuOutlined />}
+              onClick={() => setDrawerVisible(true)}
+              style={{ color: "white" }}
+            />
+          )}
+          <div style={{ color: "white", fontSize: "18px", fontWeight: "bold" }}>
+            Reservas
+          </div>
         </div>
         <div
           style={{
@@ -154,26 +166,22 @@ const UserDashboard = ({ user, onLogout }) => {
         </div>
       </Header>
 
-      <Layout>
-        <Sider
-          width={isMobile ? 50 : 80}
-          theme="light"
-          collapsedWidth={isMobile ? 50 : 80}
-          collapsed={true}
-          style={{
-            overflow: "auto",
-            height: "calc(100vh - 64px)",
-            position: "sticky",
-            top: 64,
-            left: 0,
-          }}
+      {/* Drawer para mobile */}
+      {isMobile && (
+        <Drawer
+          title="Menu"
+          placement="left"
+          onClose={() => setDrawerVisible(false)}
+          open={drawerVisible}
+          width={250}
         >
           <Menu
             mode="inline"
             selectedKeys={[selectedMenu]}
-            style={{ height: "100%", borderRight: 0 }}
-            onSelect={({ key }) => setSelectedMenu(key)}
-            inlineCollapsed={true}
+            onSelect={({ key }) => {
+              setSelectedMenu(key);
+              setDrawerVisible(false);
+            }}
             items={[
               {
                 key: "home",
@@ -187,7 +195,45 @@ const UserDashboard = ({ user, onLogout }) => {
               },
             ]}
           />
-        </Sider>
+        </Drawer>
+      )}
+
+      <Layout>
+        {!isMobile && (
+          <Sider
+            width={80}
+            theme="light"
+            collapsedWidth={80}
+            collapsed={true}
+            style={{
+              overflow: "auto",
+              height: "calc(100vh - 64px)",
+              position: "sticky",
+              top: 64,
+              left: 0,
+            }}
+          >
+            <Menu
+              mode="inline"
+              selectedKeys={[selectedMenu]}
+              style={{ height: "100%", borderRight: 0 }}
+              onSelect={({ key }) => setSelectedMenu(key)}
+              inlineCollapsed={true}
+              items={[
+                {
+                  key: "home",
+                  icon: <CalendarOutlined />,
+                  label: "Início",
+                },
+                {
+                  key: "guests",
+                  icon: <TeamOutlined />,
+                  label: "Convidados",
+                },
+              ]}
+            />
+          </Sider>
+        )}
         <Layout style={{ padding: isMobile ? "8px" : "16px" }}>
           <Content
             style={{

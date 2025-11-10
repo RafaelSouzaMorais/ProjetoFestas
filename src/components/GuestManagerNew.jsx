@@ -87,7 +87,7 @@ const GuestManager = () => {
 
   return (
     <Card title="Gerenciar Convidados">
-      {reservations.length === 0 ? (
+      {0 === totalCapacity ? (
         <p>Nenhuma reserva encontrada. Faça uma reserva primeiro.</p>
       ) : (
         <>
