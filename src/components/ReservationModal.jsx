@@ -1,5 +1,15 @@
 import { useState, useEffect } from "react";
-import { Modal, Table, Button, Tag, Popconfirm, message, Space } from "antd";
+import {
+  Modal,
+  Table,
+  Button,
+  Tag,
+  Popconfirm,
+  message,
+  Space,
+  Input,
+  Select,
+} from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import {
   getTables,
@@ -25,6 +35,8 @@ const ReservationModal = ({ visible, onClose, user }) => {
   const [loading, setLoading] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [filterMesa, setFilterMesa] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
 
   useEffect(() => {
     if (visible) {
@@ -92,14 +104,42 @@ const ReservationModal = ({ visible, onClose, user }) => {
     return myReservations.some((r) => r.table_id === tableId);
   };
 
+  // Filtrar tabelas
+  const filteredTables = tables.filter((table) => {
+    // Filtro por mesa
+    const matchMesa = filterMesa
+      ? table.table_number
+          .toString()
+          .toLowerCase()
+          .includes(filterMesa.toLowerCase())
+      : true;
+
+    // Filtro por status
+    let matchStatus = true;
+    if (filterStatus === "available") {
+      matchStatus = !isTableReserved(table.id);
+    } else if (filterStatus === "reserved") {
+      matchStatus = isTableReserved(table.id) && !isMyReservation(table.id);
+    } else if (filterStatus === "my_reservation") {
+      matchStatus = isMyReservation(table.id);
+    }
+
+    return matchMesa && matchStatus;
+  });
+
   const availableTablesColumns = [
     {
       title: "Mesa",
       dataIndex: "table_number",
       key: "table_number",
       render: (text) => <Tag color="blue">{text}</Tag>,
-      rules: { required: true },
-      filter: (value, record) =>
+      sorter: (a, b) => {
+        const numA = parseInt(a.table_number) || 0;
+        const numB = parseInt(b.table_number) || 0;
+        return numA - numB;
+      },
+      filterSearch: true,
+      onFilter: (value, record) =>
         record.table_number
           .toString()
           .toLowerCase()
@@ -215,8 +255,32 @@ const ReservationModal = ({ visible, onClose, user }) => {
           </Space>
         </div>
 
+        <div style={{ marginBottom: 16 }}>
+          <Space direction="vertical" style={{ width: "100%" }} size="small">
+            <Input
+              placeholder="Filtrar por mesa"
+              value={filterMesa}
+              onChange={(e) => setFilterMesa(e.target.value)}
+              allowClear
+              style={{ width: "100%" }}
+            />
+            <Select
+              placeholder="Filtrar por status"
+              value={filterStatus}
+              onChange={setFilterStatus}
+              style={{ width: "100%" }}
+              options={[
+                { label: "Todos", value: "all" },
+                { label: "Disponível", value: "available" },
+                { label: "Reservada", value: "reserved" },
+                { label: "Minha Reserva", value: "my_reservation" },
+              ]}
+            />
+          </Space>
+        </div>
+
         <Table
-          dataSource={tables}
+          dataSource={filteredTables}
           columns={availableTablesColumns}
           rowKey="id"
           loading={loading}
