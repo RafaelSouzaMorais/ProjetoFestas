@@ -518,17 +518,20 @@ app.post(
   }
 );
 
-// Inicializar banco de dados e servidor
+// Iniciar servidor imediatamente; inicializar DB em background
+const server = app.listen(PORT, () => {
+  console.log(`Servidor rodando em http://localhost:${PORT}`);
+});
+
 initializeDatabase()
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Servidor rodando em http://localhost:${PORT}`);
-      console.log("Banco de dados PostgreSQL conectado!");
-    });
+    console.log("Banco de dados PostgreSQL inicializado/conectado!");
   })
   .catch((error) => {
-    console.error("Erro ao inicializar servidor:", error);
-    process.exit(1);
+    console.error(
+      "Erro ao inicializar banco de dados (seguindo rodando):",
+      error
+    );
   });
 
 // SPA fallback: servir index.html para qualquer rota não-API
