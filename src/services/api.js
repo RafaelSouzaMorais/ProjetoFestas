@@ -4,11 +4,19 @@ import axios from "axios";
 function resolveBaseURL() {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl) return envUrl; // prioridade para variável explícita
-  // Quando acessa de outro dispositivo, 'localhost' não funciona; usar hostname atual
+
+  // Em produção (build), usar URL relativa para evitar mixed content (HTTPS bloqueando HTTP)
+  // Como frontend e backend estão no mesmo domínio/container, /api funciona
+  if (import.meta.env.PROD) {
+    return "/api";
+  }
+
+  // Em dev, permite acesso de outros dispositivos (mobile) usando o hostname
   if (typeof window !== "undefined") {
     const host = window.location.hostname; // ex: 192.168.0.15
     return `http://${host}:3100/api`;
   }
+
   return "http://localhost:3100/api";
 }
 

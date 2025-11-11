@@ -8,10 +8,22 @@ export default defineConfig({
     host: "0.0.0.0",
     strictPort: false,
     open: false,
+    proxy: {
+      "/api": {
+        target: "http://localhost:3100",
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port: 5173,
     host: "0.0.0.0",
     strictPort: true,
+    proxy: {
+      "/api": {
+        target: "http://localhost:3100",
+        changeOrigin: true,
+      },
+    },
   },
 });
