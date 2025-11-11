@@ -11,5 +11,5 @@ if [ -n "$DB_HOST" ]; then
   sleep 10
 fi
 
-echo "✅ Iniciando serviços..."
-exec npm run start
+echo "✅ Iniciando backend + servindo frontend estático..."
+node server/index.js

@@ -2,30 +2,32 @@ import { useState, useEffect } from "react";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import UserDashboard from "./pages/UserDashboard";
+import { getMe } from "./services/api";
 
 function App() {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
-
-    if (token && savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        // Valida formato esperado do usuário salvo
-        if (parsed && typeof parsed === "object" && "is_admin" in parsed) {
-          setUser(parsed);
-        } else {
-          // Limpa dados inválidos para evitar tela em branco
-          localStorage.removeItem("user");
-          localStorage.removeItem("token");
-        }
-      } catch (e) {
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-      }
+    if (!token) {
+      setLoading(false);
+      return;
     }
+
+    // Hidratar usuário via backend para evitar estado desatualizado em localStorage
+    (async () => {
+      try {
+        const { data } = await getMe();
+        setUser(data);
+      } catch (e) {
+        // Token inválido/expirado
+        localStorage.removeItem("token");
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const handleLogin = (userData) => {
@@ -34,7 +36,10 @@ function App() {
 
   const handleLogout = () => {
     setUser(null);
+    localStorage.removeItem("token");
   };
+
+  if (loading) return null; // opcional: poderia renderizar um spinner
 
   if (!user) {
     return <Login onLogin={handleLogin} />;

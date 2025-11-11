@@ -16,7 +16,6 @@ const Login = ({ onLogin }) => {
         message.error("Resposta inesperada do servidor");
       } else {
         localStorage.setItem("token", response.data.token);
-        localStorage.setItem("user", JSON.stringify(response.data.user));
         message.success("Login realizado com sucesso!");
         onLogin(response.data.user);
       }

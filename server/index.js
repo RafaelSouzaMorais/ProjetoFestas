@@ -72,6 +72,7 @@ app.post("/api/login", async (req, res) => {
       token,
       user: {
         id: user.id,
+        name: user.name,
         username: user.username,
         is_admin: user.is_admin,
         mesa_quota: user.mesa_quota,
@@ -80,6 +81,22 @@ app.post("/api/login", async (req, res) => {
     });
   } catch (error) {
     console.error("Error in login:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Obter usuário atual a partir do token
+app.get("/api/me", authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, name, username, is_admin, mesa_quota, cadeira_extra_quota FROM users WHERE id = $1",
+      [req.user.id]
+    );
+    const me = result.rows[0];
+    if (!me) return res.status(404).json({ error: "Usuário não encontrado" });
+    res.json(me);
+  } catch (error) {
+    console.error("Error getting me:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -506,3 +523,8 @@ initializeDatabase()
     console.error("Erro ao inicializar servidor:", error);
     process.exit(1);
   });
+
+// SPA fallback: servir index.html para qualquer rota não-API
+app.get(/^(?!\/api\/).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
+});
