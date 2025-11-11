@@ -494,6 +494,11 @@ app.post(
   }
 );
 
+// Rota catch-all para SPA - DEVE vir DEPOIS de todas as rotas /api/*
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
+});
+
 // Inicializar banco de dados e servidor
 initializeDatabase()
   .then(() => {

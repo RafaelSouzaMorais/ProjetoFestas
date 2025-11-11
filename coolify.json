@@ -1,8 +1,8 @@
 {
-  "port": 5173,
+  "port": 3100,
   "healthcheck": {
-    "path": "/",
-    "port": 5173,
+    "path": "/api/health",
+    "port": 3100,
     "interval": 30,
     "timeout": 10,
     "retries": 5,

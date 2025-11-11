@@ -5,8 +5,7 @@ function resolveBaseURL() {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl) return envUrl; // prioridade para variável explícita
 
-  // Em produção (build), usar URL relativa para evitar mixed content (HTTPS bloqueando HTTP)
-  // Como frontend e backend estão no mesmo domínio/container, /api funciona
+  // Em produção (build), usar /api relativo pois frontend e backend rodam na mesma porta (3100)
   if (import.meta.env.PROD) {
     return "/api";
   }
