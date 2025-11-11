@@ -18,7 +18,6 @@ import {
   deleteReservation,
   getAllReservations,
 } from "../services/api";
-import { rules } from "eslint-plugin-react-refresh";
 
 // Configurar z-index alto para as mensagens aparecerem na frente dos modais
 message.config({
@@ -140,10 +139,7 @@ const ReservationModal = ({ visible, onClose, user }) => {
       },
       filterSearch: true,
       onFilter: (value, record) =>
-        record.name
-          .toString()
-          .toLowerCase()
-          .includes(value.toLowerCase()),
+        record.name.toString().toLowerCase().includes(value.toLowerCase()),
     },
     {
       title: "Capacidade",
