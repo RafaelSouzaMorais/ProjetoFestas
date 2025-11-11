@@ -130,17 +130,17 @@ const ReservationModal = ({ visible, onClose, user }) => {
   const availableTablesColumns = [
     {
       title: "Mesa",
-      dataIndex: "table_number",
-      key: "table_number",
+      dataIndex: "name",
+      key: "name",
       render: (text) => <Tag color="blue">{text}</Tag>,
       sorter: (a, b) => {
-        const numA = parseInt(a.table_number) || 0;
-        const numB = parseInt(b.table_number) || 0;
+        const numA = parseInt(a.name) || 0;
+        const numB = parseInt(b.name) || 0;
         return numA - numB;
       },
       filterSearch: true,
       onFilter: (value, record) =>
-        record.table_number
+        record.name
           .toString()
           .toLowerCase()
           .includes(value.toLowerCase()),
