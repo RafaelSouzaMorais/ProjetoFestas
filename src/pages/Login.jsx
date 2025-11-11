@@ -10,6 +10,7 @@ const Login = ({ onLogin }) => {
     setLoading(true);
     try {
       const response = await login(values.username, values.password);
+      // Guarda token e usuário completo corretamente
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("user", JSON.stringify(response.data.user));
       message.success("Login realizado com sucesso!");

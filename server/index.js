@@ -270,7 +270,7 @@ app.get("/api/reservations/chairs", authMiddleware, async (req, res) => {
 app.get("/api/relatorio", authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT g.name as convidado, u.username
+      `SELECT g.name as convidado, u.name, u.username
        FROM guests g
        JOIN users u ON u.id = g.user_id
        ORDER BY u.username, g.name`

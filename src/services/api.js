@@ -1,9 +1,8 @@
 import axios from "axios";
 
+// Usa VITE_API_URL tanto em dev quanto em prod; fallback para localhost:3100
 const api = axios.create({
-  baseURL: import.meta.env.PROD
-    ? import.meta.env.VITE_API_URL
-    : "http://localhost:3100/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3100/api",
 });
 
 api.interceptors.request.use((config) => {
@@ -19,9 +18,7 @@ export const login = (username, password) => {
 };
 
 export const getUsers = () => {
-  const response = api.get("/users");
-  console.log("Users Response 1:", response);
-  return response;
+  return api.get("/users");
 };
 
 export const createUser = (userData) => {

@@ -28,15 +28,16 @@ const AllReservations = () => {
 
   const generateReport = () => {
     const sortedRelatorio = [...relatorio].sort((a, b) => {
-      return a.name.localeCompare(b.name, undefined, {
-        numeric: true,
+      return a.convidado.localeCompare(b.convidado, undefined, {
+        numeric: false,
       });
     });
-
+    console.log("Sorted Relatorio:", relatorio);
     let reportContent = `RELATÓRIO DE RESERVAS\n`;
     reportContent += `Gerado em: ${new Date().toLocaleString("pt-BR")}\n`;
     reportContent += `Total de Pessoas: ${sortedRelatorio.length}\n\n`;
     reportContent += `${"=".repeat(80)}\n\n`;
+    console.log("Sorted Relatorio:", sortedRelatorio);
     //deixando os nomes alinhados
     const maxConvidadoLength = Math.max(
       ...sortedRelatorio.map((r) => r.convidado.length)
