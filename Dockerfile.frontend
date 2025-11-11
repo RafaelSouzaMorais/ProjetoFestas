@@ -10,8 +10,18 @@ RUN apk add --no-cache python3 make g++
 
 COPY package*.json ./
 
-RUN npm install
-RUN npm install --no-save @rollup/rollup-linux-x64-musl
+RUN npm install --no-audit --no-fund
+
+# Instala o binário nativo do Rollup adequado à arquitetura quando o NPM falhar com opcionais
+# Ref: bug conhecido do npm com optionalDependencies (https://github.com/npm/cli/issues/4828)
+ARG TARGETPLATFORM
+RUN set -eux; \
+	echo "Alvo de build: ${TARGETPLATFORM}"; \
+	case "$TARGETPLATFORM" in \
+		"linux/amd64") npm install --no-save @rollup/rollup-linux-x64-musl ;; \
+		"linux/arm64") npm install --no-save @rollup/rollup-linux-arm64-musl ;; \
+		*) echo "Plataforma não suportada explicitamente: $TARGETPLATFORM, seguindo sem instalar rollup nativo" ;; \
+	esac
 
 COPY vite.config.* ./
 COPY index.html ./
