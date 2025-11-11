@@ -1,0 +1,15 @@
+FROM node:20-alpine
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+RUN apk add --no-cache wget
+
+COPY package*.json ./
+RUN npm install --omit=dev --frozen-lockfile || npm install --omit=dev
+
+COPY server ./server
+
+EXPOSE 3100
+
+CMD ["node", "server/index.js"]

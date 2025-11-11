@@ -1,14 +1,40 @@
 services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        - VITE_API_URL=${VITE_API_URL:-/api}
+    container_name: projetofestas-frontend
+    restart: unless-stopped
+    networks:
+      - festa-network
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost/ || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   backend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.backend
     container_name: projetofestas-backend
     restart: unless-stopped
     networks:
       - festa-network
     ports:
-      - "3100:3100"
+      - "${BACKEND_PORT:-3100}:3100"
     healthcheck:
       test:
         [
@@ -20,32 +46,37 @@ services:
       retries: 5
       start_period: 60s
     environment:
-      - NODE_ENV=production
-      - PORT=3100
-      - JWT_SECRET=festa-secret-key-2025
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=projeto_festas
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-3100}
+      - JWT_SECRET=${JWT_SECRET}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-projeto_festas}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
+
   postgres:
     image: postgres:16
     container_name: projetofestas-postgres
     restart: unless-stopped
     environment:
-      - POSTGRES_DB=projeto_festas
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=${DB_NAME:-projeto_festas}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d projeto_festas"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-projeto_festas}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
     ports:
-      - "5435:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
