@@ -29,6 +29,8 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: false,
+    minify: "esbuild",
+    target: "esnext",
     rollupOptions: {
       output: {
         manualChunks: {
@@ -37,5 +39,8 @@ export default defineConfig({
         },
       },
     },
+  },
+  esbuild: {
+    logOverride: { "this-is-undefined-in-esm": "silent" },
   },
 });

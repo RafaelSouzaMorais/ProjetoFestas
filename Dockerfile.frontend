@@ -4,16 +4,20 @@ WORKDIR /app
 
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 RUN apk add --no-cache python3 make g++
 
 COPY package*.json ./
+
+RUN npm install
+RUN npm install --no-save @rollup/rollup-linux-x64-musl
+
 COPY vite.config.* ./
 COPY index.html ./
 COPY public ./public
 COPY src ./src
 
-RUN npm install --frozen-lockfile || npm install
 RUN npm run build
 
 ############### STAGE 2: Serve with Nginx #################
