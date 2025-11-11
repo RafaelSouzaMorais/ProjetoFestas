@@ -9,14 +9,24 @@ const Login = ({ onLogin }) => {
   const onFinish = async (values) => {
     setLoading(true);
     try {
+      console.log("[Login] Enviando credenciais", values.username);
       const response = await login(values.username, values.password);
-      // Guarda token e usuário completo corretamente
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
-      message.success("Login realizado com sucesso!");
-      onLogin(response.data.user);
+      console.log("[Login] Resposta da API", response.data);
+      if (!response.data?.user) {
+        message.error("Resposta inesperada do servidor");
+      } else {
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("user", JSON.stringify(response.data.user));
+        message.success("Login realizado com sucesso!");
+        onLogin(response.data.user);
+      }
     } catch (error) {
-      message.error("Credenciais inválidas");
+      console.error("[Login] Erro na requisição", error);
+      if (error.response) {
+        message.error(error.response.data?.error || "Credenciais inválidas");
+      } else {
+        message.error("Falha de conexão com o servidor");
+      }
     } finally {
       setLoading(false);
     }

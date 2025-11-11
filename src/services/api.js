@@ -1,8 +1,19 @@
 import axios from "axios";
 
-// Usa VITE_API_URL tanto em dev quanto em prod; fallback para localhost:3100
+// Monta base dinâmica para facilitar testes em outros dispositivos (mobile)
+function resolveBaseURL() {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) return envUrl; // prioridade para variável explícita
+  // Quando acessa de outro dispositivo, 'localhost' não funciona; usar hostname atual
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname; // ex: 192.168.0.15
+    return `http://${host}:3100/api`;
+  }
+  return "http://localhost:3100/api";
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3100/api",
+  baseURL: resolveBaseURL(),
 });
 
 api.interceptors.request.use((config) => {
@@ -88,5 +99,7 @@ export const getEventConfig = () => {
 export const updateEventConfig = (config) => {
   return api.put("/event-config", config);
 };
+
+export const pingApi = () => api.get("/health");
 
 export default api;
