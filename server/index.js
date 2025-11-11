@@ -4,8 +4,15 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
+
+// Só carregar dotenv se o arquivo .env existir (desenvolvimento local)
+const envPath = path.join(__dirname, "..", ".env");
+if (fs.existsSync(envPath)) {
+  require("dotenv").config({ path: envPath });
+}
+
 const { pool, initializeDatabase } = require("./database.js");
-require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3100;

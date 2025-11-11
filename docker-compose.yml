@@ -76,7 +76,7 @@ services:
       timeout: 5s
       retries: 10
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5434}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:

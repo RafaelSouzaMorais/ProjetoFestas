@@ -1,5 +1,5 @@
 const { Pool } = require("pg");
-require("dotenv").config();
+// dotenv é carregado no index.js
 
 // Função de retry genérica
 const retry = async (
@@ -23,6 +23,7 @@ const retry = async (
 
 // Primeiro, criar uma conexão sem especificar o database para verificar/criar
 const createDatabaseIfNotExists = async () => {
+  console.log("porta:", process.env.DB_PORT);
   const adminPool = new Pool({
     host: process.env.DB_HOST || "localhost",
     port: process.env.DB_PORT || 5432,
@@ -70,7 +71,7 @@ const initializeDatabase = async () => {
   // Primeiro, garantir que o banco existe
   // Retry para garantir que o servidor aceitou conexões
   await retry(createDatabaseIfNotExists, {
-    attempts: 12,
+    attempts: 5,
     delayMs: 2500,
     label: "criar/verificar banco",
   });
