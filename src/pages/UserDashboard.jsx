@@ -37,7 +37,9 @@ const UserDashboard = ({ user, onLogout }) => {
   const loadEventConfig = async () => {
     try {
       const response = await getEventConfig();
-      setEventImage(response.data.event_image || "");
+      setEventImage(
+        response.data.main_image || response.data.event_image || ""
+      );
     } catch (error) {
       message.error("Erro ao carregar configuração do evento");
     }
@@ -100,7 +102,7 @@ const UserDashboard = ({ user, onLogout }) => {
                 type="primary"
                 size="large"
                 icon={<CalendarOutlined />}
-                onClick={() => setModalVisible(true)}
+                onClick={() => setSelectedMenu("map")}
                 style={{ width: "100%", maxWidth: 300 }}
               >
                 Gerenciar Minhas Reservas

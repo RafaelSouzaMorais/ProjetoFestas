@@ -179,6 +179,19 @@ const initializeDatabase = async () => {
       END $$;
     `);
 
+    // Adicionar coluna 'main_image' para imagem principal (diferente do mapa)
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'event_config' AND column_name = 'main_image'
+        ) THEN
+          ALTER TABLE event_config ADD COLUMN main_image TEXT;
+        END IF;
+      END $$;
+    `);
+
     // Verificar se já existe um registro de configuração
     const configResult = await client.query(
       "SELECT COUNT(*) as count FROM event_config"

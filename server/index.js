@@ -463,7 +463,7 @@ app.delete("/api/guests/:id", authMiddleware, async (req, res) => {
 app.get("/api/event-config", authMiddleware, async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM event_config LIMIT 1");
-    res.json(result.rows[0] || { event_image: "" });
+    res.json(result.rows[0] || { event_image: "", main_image: "" });
   } catch (error) {
     console.error("Error getting event config:", error);
     res.status(500).json({ error: error.message });
@@ -475,13 +475,32 @@ app.put(
   authMiddleware,
   adminMiddleware,
   async (req, res) => {
-    const { event_image } = req.body;
+    const { event_image, main_image } = req.body;
 
     try {
-      await pool.query(
-        "UPDATE event_config SET event_image = $1, updated_at = CURRENT_TIMESTAMP",
-        [event_image]
-      );
+      // Atualiza apenas os campos fornecidos
+      const updates = [];
+      const values = [];
+      let paramCount = 1;
+
+      if (event_image !== undefined) {
+        updates.push(`event_image = $${paramCount++}`);
+        values.push(event_image);
+      }
+
+      if (main_image !== undefined) {
+        updates.push(`main_image = $${paramCount++}`);
+        values.push(main_image);
+      }
+
+      if (updates.length > 0) {
+        updates.push("updated_at = CURRENT_TIMESTAMP");
+        await pool.query(
+          `UPDATE event_config SET ${updates.join(", ")}`,
+          values
+        );
+      }
+
       res.json({ success: true });
     } catch (error) {
       console.error("Error updating event config:", error);
@@ -512,7 +531,35 @@ app.post(
 
       res.json({ success: true, event_image: base64Image });
     } catch (error) {
-      console.error("Error uploading image:", error);
+      console.error("Error uploading event image:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+app.post(
+  "/api/event-config/upload-main",
+  authMiddleware,
+  adminMiddleware,
+  upload.single("file"),
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "Arquivo não enviado" });
+    }
+
+    try {
+      const base64Image = `data:${
+        req.file.mimetype
+      };base64,${req.file.buffer.toString("base64")}`;
+
+      await pool.query(
+        "UPDATE event_config SET main_image = $1, updated_at = CURRENT_TIMESTAMP",
+        [base64Image]
+      );
+
+      res.json({ success: true, main_image: base64Image });
+    } catch (error) {
+      console.error("Error uploading main image:", error);
       res.status(500).json({ error: error.message });
     }
   }
