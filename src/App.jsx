@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
+import { App as AntdApp } from "antd";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
+// import AdminTableMap from "./pages/AdminTableMap";
 import UserDashboard from "./pages/UserDashboard";
 import { getMe } from "./services/api";
 
@@ -41,15 +43,17 @@ function App() {
 
   if (loading) return null; // opcional: poderia renderizar um spinner
 
-  if (!user) {
-    return <Login onLogin={handleLogin} />;
-  }
-
-  if (user.is_admin) {
-    return <AdminDashboard user={user} onLogout={handleLogout} />;
-  }
-
-  return <UserDashboard user={user} onLogout={handleLogout} />;
+  return (
+    <AntdApp>
+      {!user ? (
+        <Login onLogin={handleLogin} />
+      ) : user.is_admin ? (
+        <AdminDashboard user={user} onLogout={handleLogout} />
+      ) : (
+        <UserDashboard user={user} onLogout={handleLogout} />
+      )}
+    </AntdApp>
+  );
 }
 
 export default App;

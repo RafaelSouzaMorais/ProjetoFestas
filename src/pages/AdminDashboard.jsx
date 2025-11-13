@@ -10,6 +10,7 @@ import {
 import UserManagement from "../components/UserManagement";
 import TableManagement from "../components/TableManagement";
 import EventConfig from "../components/EventConfig";
+import AdminTableMap from "./AdminTableMap";
 import AllReservations from "../components/AllReservations";
 
 const { Header, Content, Sider } = Layout;
@@ -39,6 +40,8 @@ const AdminDashboard = ({ user, onLogout }) => {
         return <UserManagement />;
       case "tables":
         return <TableManagement />;
+      case "tablemap":
+        return <AdminTableMap />;
       case "event":
         return <EventConfig />;
       case "reservations":
@@ -120,6 +123,11 @@ const AdminDashboard = ({ user, onLogout }) => {
                 key: "tables",
                 icon: <TableOutlined />,
                 label: "Mesas",
+              },
+              {
+                key: "tablemap",
+                icon: <TableOutlined />,
+                label: "Mapa",
               },
               {
                 key: "event",

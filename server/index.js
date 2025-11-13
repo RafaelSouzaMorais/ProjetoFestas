@@ -518,6 +518,239 @@ app.post(
   }
 );
 
+// ===================== Mapa de Mesas (Admin) =====================
+// Armazenamos os pontos em event_config.value (JSON) e criamos registros reais em 'tables'
+app.get("/api/table-map", authMiddleware, async (req, res) => {
+  try {
+    let cfg = await pool.query("SELECT id, value FROM event_config LIMIT 1");
+    if (cfg.rows.length === 0) {
+      await pool.query(
+        "INSERT INTO event_config (event_image, value) VALUES ($1, $2)",
+        ["", JSON.stringify({ markers: [], markerSize: 24 })]
+      );
+      cfg = await pool.query("SELECT id, value FROM event_config LIMIT 1");
+    }
+    const value = cfg.rows[0].value;
+    if (!value) return res.json({ markers: [], markerSize: 24 });
+    const parsed = JSON.parse(value);
+    // Compatibilidade com formato antigo (array direto)
+    if (Array.isArray(parsed)) {
+      return res.json({ markers: parsed, markerSize: 24 });
+    }
+    return res.json(parsed);
+  } catch (err) {
+    console.error("Error getting table-map:", err.message);
+    return res.json({ markers: [], markerSize: 24 });
+  }
+});
+
+app.post(
+  "/api/table-map",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const marker = req.body; // {id?, x, y, chairs}
+    try {
+      // Pegar config atual
+      let cfg = await pool.query("SELECT id, value FROM event_config LIMIT 1");
+      if (cfg.rows.length === 0) {
+        await pool.query(
+          "INSERT INTO event_config (event_image, value) VALUES ($1, $2)",
+          ["", JSON.stringify({ markers: [], markerSize: 24 })]
+        );
+        cfg = await pool.query("SELECT id, value FROM event_config LIMIT 1");
+      }
+      const cfgId = cfg.rows[0].id;
+      let data = { markers: [], markerSize: 24 };
+      if (cfg.rows[0].value) {
+        const parsed = JSON.parse(cfg.rows[0].value);
+        // Compatibilidade com formato antigo
+        data = Array.isArray(parsed)
+          ? { markers: parsed, markerSize: 24 }
+          : parsed;
+      }
+
+      // Criar registro em 'tables' sincronizado com a cadeira informada
+      const nextNameRes = await pool.query(
+        "SELECT COALESCE(MAX(CAST(name AS INTEGER)), 0)+1 AS next FROM tables WHERE name ~ '^[0-9]+$'"
+      );
+      const tableName = String(nextNameRes.rows[0].next);
+      const insertTable = await pool.query(
+        "INSERT INTO tables (name, capacity) VALUES ($1, $2) RETURNING id",
+        [tableName, Math.max(1, parseInt(marker.chairs || 1, 10))]
+      );
+
+      const newMarker = {
+        id:
+          marker.id ||
+          (data.markers.length
+            ? Math.max(...data.markers.map((m) => m.id || 0)) + 1
+            : 1),
+        x: marker.x,
+        y: marker.y,
+        chairs: Math.max(1, parseInt(marker.chairs || 1, 10)),
+        table_id: insertTable.rows[0].id,
+        table_number: tableName,
+      };
+      data.markers.push(newMarker);
+
+      await pool.query(
+        "UPDATE event_config SET value = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        [JSON.stringify(data), cfgId]
+      );
+      return res.json(newMarker);
+    } catch (err) {
+      console.error("Error saving table-map marker:", err.message);
+      return res.status(500).json({ error: "Erro ao salvar mesa" });
+    }
+  }
+);
+
+app.delete(
+  "/api/table-map/:id",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+      const cfg = await pool.query(
+        "SELECT id, value FROM event_config LIMIT 1"
+      );
+      if (cfg.rows.length === 0)
+        return res.status(404).json({ error: "Config não encontrada" });
+      const cfgId = cfg.rows[0].id;
+      let data = { markers: [], markerSize: 24 };
+      if (cfg.rows[0].value) {
+        const parsed = JSON.parse(cfg.rows[0].value);
+        data = Array.isArray(parsed)
+          ? { markers: parsed, markerSize: 24 }
+          : parsed;
+      }
+      const marker = data.markers.find((m) => m.id === id);
+      if (!marker)
+        return res.status(404).json({ error: "Mesa não encontrada" });
+
+      const tableId = marker.table_id;
+      if (tableId) {
+        const r = await pool.query(
+          "SELECT COUNT(*) as count FROM reservations WHERE table_id = $1",
+          [tableId]
+        );
+        if (parseInt(r.rows[0].count, 10) > 0) {
+          return res
+            .status(400)
+            .json({ error: "Mesa com reserva não pode ser removida" });
+        }
+        // Remove tabela física
+        await pool.query("DELETE FROM tables WHERE id = $1", [tableId]);
+      }
+
+      // Remove do mapa
+      data.markers = data.markers.filter((m) => m.id !== id);
+      await pool.query(
+        "UPDATE event_config SET value = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        [JSON.stringify(data), cfgId]
+      );
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("Error removing table-map marker:", err.message);
+      return res.status(500).json({ error: "Erro ao remover mesa" });
+    }
+  }
+);
+
+// Atualizar posição/cadeiras do marcador
+app.put(
+  "/api/table-map/:id",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { x, y, chairs } = req.body;
+    try {
+      const cfg = await pool.query(
+        "SELECT id, value FROM event_config LIMIT 1"
+      );
+      if (cfg.rows.length === 0)
+        return res.status(404).json({ error: "Config não encontrada" });
+      const cfgId = cfg.rows[0].id;
+      let data = { markers: [], markerSize: 24 };
+      if (cfg.rows[0].value) {
+        const parsed = JSON.parse(cfg.rows[0].value);
+        data = Array.isArray(parsed)
+          ? { markers: parsed, markerSize: 24 }
+          : parsed;
+      }
+      const idx = data.markers.findIndex((m) => m.id === id);
+      if (idx === -1)
+        return res.status(404).json({ error: "Mesa não encontrada" });
+
+      if (typeof x === "number") data.markers[idx].x = x;
+      if (typeof y === "number") data.markers[idx].y = y;
+      if (typeof chairs === "number" && chairs > 0) {
+        data.markers[idx].chairs = chairs;
+        if (data.markers[idx].table_id) {
+          await pool.query("UPDATE tables SET capacity = $1 WHERE id = $2", [
+            chairs,
+            data.markers[idx].table_id,
+          ]);
+        }
+      }
+
+      await pool.query(
+        "UPDATE event_config SET value = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        [JSON.stringify(data), cfgId]
+      );
+      return res.json(data.markers[idx]);
+    } catch (err) {
+      console.error("Error updating table-map marker:", err.message);
+      return res.status(500).json({ error: "Erro ao atualizar mesa" });
+    }
+  }
+);
+
+// Atualizar tamanho dos marcadores
+app.put(
+  "/api/table-map-config",
+  authMiddleware,
+  adminMiddleware,
+  async (req, res) => {
+    const { markerSize } = req.body;
+    try {
+      const cfg = await pool.query(
+        "SELECT id, value FROM event_config LIMIT 1"
+      );
+      if (cfg.rows.length === 0)
+        return res.status(404).json({ error: "Config não encontrada" });
+      const cfgId = cfg.rows[0].id;
+      let data = { markers: [], markerSize: 24 };
+      if (cfg.rows[0].value) {
+        const parsed = JSON.parse(cfg.rows[0].value);
+        data = Array.isArray(parsed)
+          ? { markers: parsed, markerSize: 24 }
+          : parsed;
+      }
+
+      if (
+        typeof markerSize === "number" &&
+        markerSize >= 12 &&
+        markerSize <= 48
+      ) {
+        data.markerSize = markerSize;
+      }
+
+      await pool.query(
+        "UPDATE event_config SET value = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        [JSON.stringify(data), cfgId]
+      );
+      return res.json({ success: true, markerSize: data.markerSize });
+    } catch (err) {
+      console.error("Error updating marker size:", err.message);
+      return res.status(500).json({ error: "Erro ao atualizar tamanho" });
+    }
+  }
+);
+
 // Iniciar servidor imediatamente; inicializar DB em background
 const server = app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);

@@ -5,10 +5,12 @@ import {
   CalendarOutlined,
   TeamOutlined,
   MenuOutlined,
+  EnvironmentOutlined,
 } from "@ant-design/icons";
 import { getEventConfig } from "../services/api";
 import ReservationModal from "../components/ReservationModal";
 import GuestManager from "../components/GuestManagerNew";
+import UserTableMap from "../components/UserTableMap";
 
 const { Header, Content, Sider } = Layout;
 
@@ -108,6 +110,8 @@ const UserDashboard = ({ user, onLogout }) => {
         );
       case "guests":
         return <GuestManager />;
+      case "map":
+        return <UserTableMap />;
       default:
         return null;
     }
@@ -189,6 +193,11 @@ const UserDashboard = ({ user, onLogout }) => {
                 label: "Início",
               },
               {
+                key: "map",
+                icon: <EnvironmentOutlined />,
+                label: "Mapa",
+              },
+              {
                 key: "guests",
                 icon: <TeamOutlined />,
                 label: "Convidados",
@@ -224,6 +233,11 @@ const UserDashboard = ({ user, onLogout }) => {
                   key: "home",
                   icon: <CalendarOutlined />,
                   label: "Início",
+                },
+                {
+                  key: "map",
+                  icon: <EnvironmentOutlined />,
+                  label: "Mapa",
                 },
                 {
                   key: "guests",

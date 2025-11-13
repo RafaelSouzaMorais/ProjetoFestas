@@ -21,11 +21,21 @@ const retry = async (
   throw lastErr;
 };
 
+// Resolver host do Postgres: em dev local, se DB_HOST for 'postgres', usar 'localhost'
+const resolveDbHost = () => {
+  const envHost = process.env.DB_HOST;
+  if (!envHost) return "localhost";
+  if (envHost === "postgres" && process.env.NODE_ENV !== "production") {
+    return "localhost";
+  }
+  return envHost;
+};
+
 // Primeiro, criar uma conexão sem especificar o database para verificar/criar
 const createDatabaseIfNotExists = async () => {
   console.log("porta:", process.env.DB_PORT);
   const adminPool = new Pool({
-    host: process.env.DB_HOST || "localhost",
+    host: resolveDbHost(),
     port: process.env.DB_PORT || 5432,
     database: "postgres", // Conecta ao banco padrão
     user: process.env.DB_USER || "postgres",
@@ -59,7 +69,7 @@ const createDatabaseIfNotExists = async () => {
 
 // Pool de conexão para o banco de dados da aplicação
 const pool = new Pool({
-  host: process.env.DB_HOST || "localhost",
+  host: resolveDbHost(),
   port: process.env.DB_PORT || 5432,
   database: process.env.DB_NAME || "projeto_festas",
   user: process.env.DB_USER || "postgres",
@@ -146,13 +156,27 @@ const initializeDatabase = async () => {
       )
     `);
 
-    // Criar tabela de configuração do evento
+    // Criar tabela de configuração do evento (agora com campo value para mesas)
     await client.query(`
       CREATE TABLE IF NOT EXISTS event_config (
         id SERIAL PRIMARY KEY,
         event_image TEXT,
+        value TEXT,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Adicionar coluna 'value' se não existir (migração para bancos antigos)
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'event_config' AND column_name = 'value'
+        ) THEN
+          ALTER TABLE event_config ADD COLUMN value TEXT;
+        END IF;
+      END $$;
     `);
 
     // Verificar se já existe um registro de configuração
@@ -160,10 +184,16 @@ const initializeDatabase = async () => {
       "SELECT COUNT(*) as count FROM event_config"
     );
     if (parseInt(configResult.rows[0].count) === 0) {
-      await client.query("INSERT INTO event_config (event_image) VALUES ($1)", [
-        "",
-      ]);
+      await client.query(
+        "INSERT INTO event_config (event_image, value) VALUES ($1, $2)",
+        ["", "[]"]
+      );
     }
+
+    // Garantir default caso valor esteja nulo
+    await client.query(
+      "UPDATE event_config SET value = '[]' WHERE value IS NULL"
+    );
 
     // Criar usuário admin padrão se não existir
     const adminResult = await client.query(
